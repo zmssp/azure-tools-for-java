@@ -1,5 +1,5 @@
 # azure-tools-for-java
-This is the repository for the open source portions of the source code for:
+This is the repository for the open source-licensed portions of:
 * [Azure Toolkit for Eclipse](#azure-toolkit-for-eclipse)
 * [Azure Toolkit for IntelliJ IDEA](#azure-toolkit-for-intellij-idea)
 
