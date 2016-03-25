@@ -3,7 +3,7 @@ This is the repository for the open source-licensed portions of:
 * [Azure Toolkit for Eclipse](#azure-toolkit-for-eclipse)
 * [Azure Toolkit for IntelliJ IDEA](#azure-toolkit-for-intellij-idea)
 
-The two projects use a lot of shared code and as of v2.8.2 (March release) are *equivalent* in functionality, hence the shared repo. 
+The two projects use a lot of shared code and as of v2.8.2 (March 2016 release) are *equivalent* in functionality, hence the shared repo. 
 
 ## Azure Toolkit for Eclipse
 
