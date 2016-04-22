@@ -1,7 +1,7 @@
 <idea-plugin version="2">
   <id>com.microsoft.tooling.msservices.intellij.azure</id>
   <name>Azure Toolkit for IntelliJ</name>
-  <version>1.2</version>
+  <version>1.3</version>
   <vendor email="xplatjava@microsoft.com" url="http://www.microsoft.com">Microsoft</vendor>
 
   <description><![CDATA[
@@ -85,7 +85,7 @@
             text="New Azure Deployment Project"
             description="New Azure Deployment Project" icon="/icons/small/cloudService.png"/>
     <action id="Actions.DeployAction" class="com.microsoft.intellij.actions.DeployAction"
-            text="Publish as Azure Cloud Service"
+            text="Publish as Azure Cloud Service..."
             description="Publish as Azure Cloud Service" icon="/icons/publish.png"/>
     <action id="Actions.UnpublishAction" class="com.microsoft.intellij.actions.UnpublishAction"
             text="Unpublish"
@@ -112,10 +112,10 @@
             description="Configure Application Insights..." icon="/icons/applicationInsights.png"/>
     <action id="Actions.AzureWebDeploy" class="com.microsoft.intellij.actions.AzureWebDeployAction"
             text="Publish as Azure Web App..." description="Azure website deployment for Java"
-            icon="/icons/website.png">
+            icon="/icons/publishWebsite.png">
     </action>
 
-    <group id="AzurePopupGroup" text="Azure" description="Azure" icon="/icons/small/windowsAzure.png" popup="true"
+    <group id="AzurePopupGroup" text="Azure" description="Azure" icon="/icons/azure.png" popup="true"
            class="com.microsoft.intellij.actions.AzurePopupGroup">
       <reference ref="Actions.AzureWebDeploy"/>
       <separator/>
@@ -132,11 +132,14 @@
     </group>
 
     <group id="AzureToolbarGroup" text="Azure" description="Azure">
+      <group id="PublishToAzureGroup" text="Publish Group" description="Publish Group" popup="true" icon="/icons/publish.png">
+        <reference ref="Actions.AzureWebDeploy"/>
+        <reference ref="Actions.DeployAction"/>
+      </group>
       <reference ref="Actions.RunInEmulatorAction"/>
       <reference ref="Actions.ResetEmulatorAction"/>
       <reference ref="Actions.BuildPackageAction"/>
       <reference ref="Actions.PackageAction"/>
-      <reference ref="Actions.DeployAction"/>
       <reference ref="Actions.UnpublishAction"/>
     </group>
 

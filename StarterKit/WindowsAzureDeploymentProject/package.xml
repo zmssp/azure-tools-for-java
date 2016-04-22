@@ -19,7 +19,7 @@ ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 --><project basedir="." default="createwapackage" name="WindowsAzureDeploymentProject">
 	<property location="." name="cspack.dir"/>
-	<property location="D:\Eclipse\eclipse-jee-luna\eclipse\plugins\com.microsoftopentechnologies.windowsazure.tools.sdk_0.9.2.201603070159" name="azure.lib.dir"/>
+	<property location="./lib" name="azure.lib.dir"/>
 	<property location="" name="publishsettingspath"/>
 	<property name="subscriptionid" value=""/>
 	<property name="cloudservicename" value=""/>
@@ -27,13 +27,13 @@ THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	<property name="storageaccountname" value=""/>
 	<property name="deploymentslot" value="Staging"/>
 	<property name="overwritepreviousdeployment" value="true"/>
-	<property name="creator.version" value="2.8.2"/>
+	<property name="creator.version" value="2.9.0"/>
 	<property name="accesstoken" value=""/>
 
 	<path id="build.classpath">
 		<!-- Setting cspack.jar in classpath -->
 		<fileset dir="${cspack.dir}">
-			<include name="**/*.jar"/>
+			<include name="*.jar"/>
 			<include name="**/*.jar"/>
 		</fileset>
 
@@ -56,7 +56,7 @@ THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 		encutil.exe from wastarterkit4java.codeplex.com.  You may delete this comment after you stop referencing this 
 		sample certificate. -->
 		<property name="cert.windowsazureremotedesktop" value="${basedir}\cert\SampleRemoteAccessPublic.cer"/>
-		<property name="creator.version" value="2.8.2"/>
+		<property name="creator.version" value="${creator.version}"/>
 	</target>
 
 	<!-- Force emulator reset to ensure no locks on deploy directory -->

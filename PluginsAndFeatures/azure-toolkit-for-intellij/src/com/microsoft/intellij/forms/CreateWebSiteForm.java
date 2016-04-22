@@ -25,6 +25,8 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.ValidationInfo;
 import com.microsoft.azure.management.resources.models.ResourceGroupExtended;
+import com.microsoft.intellij.AzurePlugin;
+import com.microsoft.intellij.AzureSettings;
 import com.microsoft.intellij.ui.NewResourceGroupDialog;
 import com.microsoft.intellij.util.PluginUtil;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
@@ -39,12 +41,14 @@ import com.microsoft.tooling.msservices.model.ws.WebAppsContainers;
 import com.microsoft.tooling.msservices.model.ws.WebHostingPlanCache;
 import com.microsoft.tooling.msservices.model.ws.WebSite;
 import com.microsoft.tooling.msservices.model.ws.WebSiteConfiguration;
+import org.jdesktop.swingx.JXHyperlink;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
-import java.util.ArrayList;
+import java.net.URI;
+import java.util.*;
 import java.util.List;
 
 import static com.microsoft.intellij.ui.messages.AzureBundle.message;
@@ -60,6 +64,10 @@ public class CreateWebSiteForm extends DialogWrapper {
     private JLabel webContainerLabel;
     private JComboBox groupComboBox;
     private JLabel dnsWebsite;
+    private JLabel servicePlanDetailsLocationLbl;
+    private JLabel servicePlanDetailsPricingTierLbl;
+    private JLabel servicePlanDetailsInstanceSizeLbl;
+    private JXHyperlink linkPrice;
     private Project project;
     private Subscription subscription;
     private WebHostingPlanCache webHostingPlan;
@@ -68,6 +76,8 @@ public class CreateWebSiteForm extends DialogWrapper {
     List<String> webSiteNames = new ArrayList<String>();
     private CancellableTask.CancellableTaskHandle fillPlansAcrossSub;
     List<String> plansAcrossSub = new ArrayList<String>();
+    HashMap<String, WebHostingPlanCache> hostingPlanMap = new HashMap<String, WebHostingPlanCache>();
+    ItemListener webHostingPlanComboBoxItemListner;
 
     public CreateWebSiteForm(@org.jetbrains.annotations.Nullable Project project, List<WebSite> webSiteList) {
         super(project, true, IdeModalityType.PROJECT);
@@ -101,23 +111,28 @@ public class CreateWebSiteForm extends DialogWrapper {
             }
         });
 
-        webHostingPlanComboBox.addItemListener(new ItemListener() {
+        webHostingPlanComboBoxItemListner = new ItemListener() {
             @Override
             public void itemStateChanged(ItemEvent itemEvent) {
-                if (itemEvent.getItem() instanceof WebHostingPlanCache) {
-                    webHostingPlan = (WebHostingPlanCache) itemEvent.getItem();
-                } else if (createWebHostingPlanLabel.equals(itemEvent.getItem())) {
-                    webHostingPlan = null;
-                    showCreateWebHostingPlanForm();
+                if (itemEvent.getStateChange() == ItemEvent.SELECTED) {
+                    String selectedItem = (String) itemEvent.getItem();
+                    if (selectedItem.equals(createWebHostingPlanLabel)) {
+                        showCreateWebHostingPlanForm();
+                    } else {
+                        WebHostingPlanCache plan = hostingPlanMap.get(selectedItem);
+                        pupulateServicePlanDetails(plan);
+                    }
                 }
             }
-        });
+        };
+
         List<String> containerList = new ArrayList<String>();
         for (WebAppsContainers type : WebAppsContainers.values()) {
             containerList.add(type.getName());
         }
         webContainerComboBox.setModel(new DefaultComboBoxModel(containerList.toArray()));
-
+        linkPrice.setURI(URI.create(message("lnkWebAppPrice")));
+        linkPrice.setText("Pricing");
         init();
         webAppCreated = "";
         fillSubscriptions();
@@ -175,6 +190,9 @@ public class CreateWebSiteForm extends DialogWrapper {
             }
             manager.updateWebSiteConfiguration(subscription.getId(), webSite.getWebSpaceName(), webSite.getName(), webSite.getLocation(), webSiteConfiguration);
             webAppCreated = webSite.getName();
+            Map<WebSite, WebSiteConfiguration> tempMap = AzureSettings.getSafeInstance(AzurePlugin.project).loadWebApps();
+            tempMap.put(webSite, webSiteConfiguration);
+            AzureSettings.getSafeInstance(AzurePlugin.project).saveWebApps(tempMap);
         } catch (AzureCmdException e) {
             String errorMessage = e.getMessage();
             if (errorMessage.contains(message("nameConflict"))) {
@@ -214,8 +232,8 @@ public class CreateWebSiteForm extends DialogWrapper {
                 subscriptionComboBox.setSelectedIndex(0);
             }
         } catch (AzureCmdException e) {
-            DefaultLoader.getUIHelper().showException("An error occurred while trying to load the subscriptions list",
-                    e, "Azure Services Explorer - Error Loading Subscriptions", false, true);
+            String msg = "An error occurred while trying to load the subscriptions list." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
+            PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
         }
     }
 
@@ -266,49 +284,83 @@ public class CreateWebSiteForm extends DialogWrapper {
                 }
             }
         } catch (AzureCmdException e) {
-            DefaultLoader.getUIHelper().showException("An error occurred while trying to load the resource groups",
-                    e, "Azure Services Explorer - Error Loading resource groups", false, true);
+            String msg = "An error occurred while loading the resource groups." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
+            PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
         }
     }
 
     private void fillWebHostingPlans(String valToSet) {
         try {
             if (resourceGroup != null) {
+                // clean combobox and hashmap
+                webHostingPlanComboBox.removeItemListener(webHostingPlanComboBoxItemListner); // remove listner to not get notification while adding items to the combobox
+                webHostingPlanComboBox.removeAllItems();
+                hostingPlanMap.clear();
+                // add <<create new ...>> item
+                webHostingPlanComboBox.addItem(createWebHostingPlanLabel);
+
+                // get web hosting service plans from Azure
                 List<WebHostingPlanCache> webHostingPlans = AzureManagerImpl.getManager().getWebHostingPlans(subscription.getId(), resourceGroup);
-                DefaultComboBoxModel appServicePlanComboModel = new DefaultComboBoxModel(webHostingPlans.toArray());
-                appServicePlanComboModel.insertElementAt(createWebHostingPlanLabel, 0);
-                appServicePlanComboModel.setSelectedItem(null);
-                webHostingPlanComboBox.setModel(appServicePlanComboModel);
-                if (!webHostingPlans.isEmpty()) {
-                    int index = 1;
-                    if (valToSet != null && !valToSet.isEmpty()) {
-                        for (int i=0; i < webHostingPlans.size(); i++) {
-                            if (webHostingPlans.get(i).getName().equalsIgnoreCase(valToSet)) {
-                                index = i + 1;
-                                break;
-                            }
+                if (webHostingPlans.size() > 0) {
+                    // sort the list
+                    Collections.sort(webHostingPlans, new Comparator<WebHostingPlanCache>() {
+                        @Override
+                        public int compare(WebHostingPlanCache o1, WebHostingPlanCache o2) {
+                            return o1.getName().compareTo(o2.getName());
                         }
+                    });
+
+                    // populate the combobox and the hashmap
+                    for (WebHostingPlanCache plan : webHostingPlans) {
+                        webHostingPlanComboBox.addItem(plan.getName());
+                        hostingPlanMap.put(plan.getName(), plan);
                     }
-                    webHostingPlanComboBox.setSelectedIndex(index);
+
+                    // set selested item
+                    if (valToSet == null || valToSet.isEmpty()) {
+                        webHostingPlanComboBox.setSelectedItem(webHostingPlanComboBox.getItemAt(1));
+                    } else {
+                        webHostingPlanComboBox.setSelectedItem(valToSet);;
+                    }
+
+                    // populate hosting service plan details
+                    pupulateServicePlanDetails(hostingPlanMap.get((String) webHostingPlanComboBox.getSelectedItem()));
                 }
+                else {
+                    // clear selected item if any
+                    webHostingPlanComboBox.setSelectedItem(null);
+                    // clean hosting service plan details
+                    pupulateServicePlanDetails(null);
+                }
+
+                webHostingPlanComboBox.addItemListener(webHostingPlanComboBoxItemListner);
             }
         } catch (AzureCmdException e) {
-            DefaultLoader.getUIHelper().showException("An error occurred while trying to load the app service plans",
-                    e, "Azure Services Explorer - Error Loading App Service Plans", false, true);
+            String msg = "An error occurred while loading the app service plans." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
+            PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
         }
+    }
+
+    private void pupulateServicePlanDetails(WebHostingPlanCache plan){
+        webHostingPlan = plan;
+        servicePlanDetailsLocationLbl.setText(plan == null ? "-" : plan.getLocation());
+        servicePlanDetailsPricingTierLbl.setText(plan == null ? "-" : plan.getSku().name());
+        servicePlanDetailsInstanceSizeLbl.setText(plan == null ? "-" : plan.getWorkerSize().name());
     }
 
     private void showCreateWebHostingPlanForm() {
         final CreateWebHostingPlanForm form = new CreateWebHostingPlanForm(project, subscription.getId(), resourceGroup, plansAcrossSub);
         form.show();
-        if (form.isOK()) {
-            DefaultLoader.getIdeHelper().invokeLater(new Runnable() {
-                @Override
-                public void run() {
+        DefaultLoader.getIdeHelper().invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                if (form.isOK()) {
                     fillWebHostingPlans(form.getWebHostingPlan());
+                } else {
+                    fillWebHostingPlans("");
                 }
-            });
-        }
+            }
+        });
     }
 
     private void showcreateResourceGroupForm() {
@@ -324,6 +376,13 @@ public class CreateWebSiteForm extends DialogWrapper {
                     }
                 });
             }
+        } else {
+            DefaultLoader.getIdeHelper().invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    fillResourceGroups("");
+                }
+            });
         }
     }
 

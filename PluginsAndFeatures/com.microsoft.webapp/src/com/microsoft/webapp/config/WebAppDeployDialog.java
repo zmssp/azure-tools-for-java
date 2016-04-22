@@ -20,6 +20,8 @@
 package com.microsoft.webapp.config;
 
 import java.io.File;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -36,6 +38,7 @@ import org.eclipse.core.runtime.jobs.IJobChangeEvent;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.core.runtime.jobs.JobChangeAdapter;
 import org.eclipse.jface.dialogs.IDialogConstants;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.dialogs.TitleAreaDialog;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.SWT;
@@ -56,8 +59,10 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.console.MessageConsole;
 import org.eclipse.ui.console.MessageConsoleStream;
 
+import com.gigaspaces.azure.util.PreferenceWebAppUtil;
 import com.gigaspaces.azure.views.WindowsAzureActivityLogView;
 import com.gigaspaces.azure.wizards.WizardCacheManager;
+import com.microsoft.azureexplorer.helpers.PreferenceUtil;
 import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
 import com.microsoft.tooling.msservices.helpers.azure.AzureManager;
 import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
@@ -72,6 +77,7 @@ import com.microsoft.windowsazure.core.OperationStatus;
 import com.microsoftopentechnologies.azurecommons.deploy.DeploymentEventArgs;
 import com.microsoftopentechnologies.azurecommons.deploy.DeploymentEventListener;
 import com.microsoftopentechnologies.wacommon.commoncontrols.ManageSubscriptionDialog;
+import com.microsoftopentechnologies.wacommon.telemetry.AppInsightsCustomEvent;
 import com.microsoftopentechnologies.wacommon.utils.PluginUtil;
 import com.microsoftopentechnologies.wacommon.utils.WAExportWarEar;
 
@@ -82,6 +88,7 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 	Map<WebSite, WebSiteConfiguration> webSiteConfigMap = new HashMap<WebSite, WebSiteConfiguration>();
 	WebSite selectedWebSite;
 	Button okButton;
+	Button delBtn;
 	Button deployToRoot;
 	String webAppCreated = "";
 	AzureCmdException exp = new AzureCmdException("");
@@ -105,8 +112,8 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 	protected Control createButtonBar(Composite parent) {
 		Control ctrl = super.createButtonBar(parent);
 		okButton = getButton(IDialogConstants.OK_ID);
-		okButton.setEnabled(true);
-		fillList("");
+		okButton.setEnabled(false);
+		fillList(PreferenceUtil.loadPreference(String.format(Messages.webappKey, PluginUtil.getSelectedProject().getName())));
 		return ctrl;
 	}
 
@@ -119,7 +126,6 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 		GridData gridData = new GridData();
 		gridData.horizontalAlignment = SWT.FILL;
 		gridData.grabExcessHorizontalSpace = true;
-		gridLayout.marginBottom = 10;
 		container.setLayout(gridLayout);
 		container.setLayoutData(gridData);
 
@@ -166,20 +172,19 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 			@Override
 			public void widgetSelected(SelectionEvent event) {
 				int index = list.getSelectionIndex();
-				if (isDeployable(index)) {
+				if (index >= 0 && webSiteList.size() > index) {
 					selectedWebSite = webSiteList.get(index);
-					okButton.setEnabled(true);
-				} else {
-					selectedWebSite = null;
-					okButton.setEnabled(false);
+					delBtn.setEnabled(true);
+					if (webSiteConfigMap.get(webSiteList.get(index)).getJavaContainer().isEmpty()) {
+						okButton.setEnabled(false);
+					} else {
+						okButton.setEnabled(true);
+					}
 				}
 			}
 		});
-		createButtons(container);
-	}
 
-	private boolean isDeployable(int index) {
-		return index >= 0 && webSiteList.size() > index && !webSiteConfigMap.get(webSiteList.get(index)).getJavaContainer().isEmpty();
+		createButtons(container);
 	}
 
 	private void createButtons(Composite container) {
@@ -206,6 +211,52 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 				int result = dialog.open();
 				if (result == Window.OK) {
 					createWebApp(dialog);
+				}
+			}
+
+			@Override
+			public void widgetDefaultSelected(SelectionEvent arg0) {
+			}
+		});
+
+		delBtn = new Button(containerButtons, SWT.PUSH);
+		delBtn.setText(Messages.delBtn);
+		gridData = new GridData();
+		gridData.widthHint = 70;
+		gridData.horizontalAlignment = SWT.FILL;
+		gridData.grabExcessHorizontalSpace = true;
+		delBtn.setLayoutData(gridData);
+		delBtn.setEnabled(false);
+		delBtn.addSelectionListener(new SelectionListener() {
+			@Override
+			public void widgetSelected(SelectionEvent arg0) {
+				if (selectedWebSite != null) {
+					try {
+						String name = selectedWebSite.getName();
+						boolean choice = MessageDialog.openConfirm(getShell(), Messages.delTtl, String.format(Messages.delMsg, name));
+						if (choice) {
+							int index = list.getSelectionIndex();
+							AzureManagerImpl.getManager().deleteWebSite(selectedWebSite.getSubscriptionId(),
+									selectedWebSite.getWebSpaceName(), name);
+							// update cached data as well
+							webSiteList.remove(index);
+							listToDisplay.remove(index);
+							list.setItems(listToDisplay.toArray(new String[listToDisplay.size()]));
+							webSiteConfigMap.remove(selectedWebSite);
+							PreferenceWebAppUtil.save(webSiteConfigMap);
+							if (webSiteConfigMap.isEmpty()) {
+								setErrorMessage(Messages.noWebAppErrMsg);
+							}
+							// always disable button as after delete no entry is selected
+							delBtn.setEnabled(false);
+							selectedWebSite = null;
+						}
+					} catch (AzureCmdException e) {
+						String msg = Messages.delErr + "\n" + String.format(Messages.webappExpMsg, e.getMessage());
+						PluginUtil.displayErrorDialogAndLog(getShell(), Messages.errTtl, msg, e);
+					}
+				} else {
+					PluginUtil.displayErrorDialog(getShell(), Messages.errTtl, "Select a web app container to delete.");
 				}
 			}
 
@@ -252,10 +303,11 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 				list.setItems(new String[]{""});
 				selectedWebSite = null;
 			} else {
-				fillList("");
+				fillList(PreferenceUtil.loadPreference(String.format(Messages.webappKey, PluginUtil.getSelectedProject().getName())));
 			}
 		} catch(AzureCmdException ex) {
-			PluginUtil.displayErrorDialogAndLog(getShell(), Messages.errTtl, Messages.loadSubErrMsg, ex);
+			String msg = Messages.loadSubErrMsg + "\n" + String.format(Messages.webappExpMsg, ex.getMessage());
+			PluginUtil.displayErrorDialogAndLog(getShell(), Messages.errTtl, msg, ex);
 		}
 	}
 
@@ -306,32 +358,38 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 			monitor.beginTask(Messages.loadWebApps, IProgressMonitor.UNKNOWN);
 			try {
 				Activator.getDefault().log(Messages.jobStart);
-				AzureManager manager = AzureManagerImpl.getManager();
 				webSiteConfigMap = new HashMap<WebSite, WebSiteConfiguration>();
+				AzureManager manager = AzureManagerImpl.getManager();
 				subList = manager.getSubscriptionList();
 				if (subList.size() > 0) {
-					if (manager.authenticated()) {
-						// authenticated using AD. Proceed for Web Apps retrieval
-						for (Subscription sub : subList) {
-							List<String> resList = manager.getResourceGroupNames(sub.getId());
-							for (String res : resList) {
-								List<WebSite> webList = manager.getWebSites(sub.getId(), res);
-								for (WebSite webSite : webList) {
-									WebSiteConfiguration webSiteConfiguration = AzureManagerImpl.getManager().
-											getWebSiteConfiguration(webSite.getSubscriptionId(),
-													webSite.getWebSpaceName(), webSite.getName());
-									webSiteConfigMap.put(webSite, webSiteConfiguration);
+					if (PreferenceWebAppUtil.isLoaded()) {
+						webSiteConfigMap = PreferenceWebAppUtil.load();
+					} else {
+						if (manager.authenticated()) {
+							// authenticated using AD. Proceed for Web Apps retrieval
+							for (Subscription sub : subList) {
+								List<String> resList = manager.getResourceGroupNames(sub.getId());
+								for (String res : resList) {
+									List<WebSite> webList = manager.getWebSites(sub.getId(), res);
+									for (WebSite webSite : webList) {
+										WebSiteConfiguration webSiteConfiguration = manager.
+												getWebSiteConfiguration(webSite.getSubscriptionId(),
+														webSite.getWebSpaceName(), webSite.getName());
+										webSiteConfigMap.put(webSite, webSiteConfiguration);
+									}
 								}
 							}
+							PreferenceWebAppUtil.save(webSiteConfigMap);
+							PreferenceWebAppUtil.setLoaded(true);
+						} else {
+							// imported publish settings file. Clear subscription
+							manager.clearImportedPublishSettingsFiles();
+							WizardCacheManager.clearSubscriptions();
+							subList = manager.getSubscriptionList();
 						}
-					} else {
-						// imported publish settings file. Clear subscription
-						manager.clearImportedPublishSettingsFiles();
-						WizardCacheManager.clearSubscriptions();
-						subList = manager.getSubscriptionList();
 					}
 				}
-			} catch(AzureCmdException ex) {
+			} catch(Exception ex) {
 				Activator.getDefault().log(Messages.loadErrMsg, ex);
 				super.setName("");
 				monitor.done();
@@ -377,6 +435,9 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 				manager.updateWebSiteConfiguration(dialog.getFinalSubId(), webSite.getWebSpaceName(), webSite.getName(),
 						webSite.getLocation(), webSiteConfiguration);
 				webAppCreated = webSite.getName();
+				// update eclipse workspace preferences
+				webSiteConfigMap.put(webSite, webSiteConfiguration);
+				PreferenceWebAppUtil.save(webSiteConfigMap);
 			} catch(AzureCmdException ex) {
 				Activator.getDefault().log(Messages.createErrMsg, ex);
 				super.setName("");
@@ -410,6 +471,7 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 										list.select(i);
 										selectedWebSite = webSiteList.get(i);
 										okButton.setEnabled(true);
+										delBtn.setEnabled(true);
 										break;
 									}
 								}
@@ -567,12 +629,28 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 						WebSitePublishSettings.PublishProfile profile = webSitePublishSettings.getPublishProfileList().get(0);
 						notifyProgress(selectedName, null, 20, OperationStatus.InProgress, "");
 						String url = "";
+						String destAppUrl = "";
 						if (profile != null) {
-							url = profile.getDestinationAppUrl();
+							destAppUrl = profile.getDestinationAppUrl();
+							url = destAppUrl;
 							if (!isDeployToRoot) {
-								url = url + "/" + project.getName();
+								String artifactName = project.getName().replaceAll("[^a-zA-Z0-9_-]+","");
+								url = url + "/" + artifactName;
 							}
 						}
+
+						final String sitePath = url;
+						new Thread("Warm up the target site") {
+							public void run() {
+								try {
+									sendGet(sitePath);
+								}
+								catch (Exception ex) {
+									Activator.getDefault().log(ex.getMessage(), ex);
+								}
+							}
+						}.start();
+
 						Thread.sleep(2000);
 						notifyProgress(selectedName, url, 50, OperationStatus.Succeeded, "Running");
 
@@ -583,8 +661,11 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 							// exception will occur if user do not install azure explorer plugin
 							Activator.getDefault().log(ex.getMessage(), ex);
 						}
-						
 						PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().showView(Messages.activityView);
+						// send telemetry event
+						AppInsightsCustomEvent.createFTPEvent("WebAppFTP", destAppUrl, project.getName(), selectedSubId);
+						// associate WebApp container with Java project for Republish functionality
+						PreferenceUtil.savePreference(String.format(Messages.webappKey, project.getName()), selectedName);
 					} catch (Exception e) {
 						Activator.getDefault().log(e.getMessage(), e);
 						notifyProgress(selectedName, null, 100, OperationStatus.Failed, e.getMessage());
@@ -596,6 +677,15 @@ public class WebAppDeployDialog extends TitleAreaDialog {
 			monitor.done();
 			super.done(Status.OK_STATUS);
 			return Status.OK_STATUS;
+		}
+		
+		// HTTP GET request
+		private void sendGet(String sitePath) throws Exception {
+			URL url = new URL(sitePath);
+			HttpURLConnection con = (HttpURLConnection) url.openConnection();
+			con.setRequestMethod("GET");
+			con.setRequestProperty("User-Agent", "AzureToolkit for Eclipse");
+			con.getResponseCode();
 		}
 	}
 }

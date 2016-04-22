@@ -27,6 +27,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.ValidationInfo;
 import com.intellij.ui.table.JBTable;
+import com.microsoft.intellij.AzurePlugin;
 import com.microsoft.intellij.AzureSettings;
 import com.microsoft.intellij.ui.AzureAbstractPanel;
 import com.microsoft.intellij.util.PluginUtil;
@@ -36,6 +37,8 @@ import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
 import com.microsoft.tooling.msservices.helpers.azure.AzureManager;
 import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
 import com.microsoft.tooling.msservices.model.Subscription;
+import com.microsoft.tooling.msservices.model.ws.WebSite;
+import com.microsoft.tooling.msservices.model.ws.WebSiteConfiguration;
 import com.microsoftopentechnologies.azurecommons.deploy.util.PublishData;
 import com.microsoftopentechnologies.azurecommons.deploy.util.PublishProfile;
 import com.microsoftopentechnologies.azurecommons.exception.RestAPIException;
@@ -49,9 +52,8 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
-import java.util.Vector;
 
 import static com.microsoft.intellij.ui.messages.AzureBundle.message;
 
@@ -120,13 +122,26 @@ public class ManageSubscriptionPanel implements AzureAbstractPanel {
                         PublishData pd  = new PublishData();
                         PublishProfile publishProfile = new PublishProfile();
                         pd.setPublishProfile(publishProfile);
+                        Map<WebSite, WebSiteConfiguration> webSiteConfigMap = new HashMap<WebSite, WebSiteConfiguration>();
                         for (Subscription subscription : subscriptions) {
                             com.microsoftopentechnologies.azuremanagementutil.model.Subscription profileSubscription =
                                     new com.microsoftopentechnologies.azuremanagementutil.model.Subscription();
                             profileSubscription.setSubscriptionID(subscription.getId());
                             profileSubscription.setSubscriptionName(subscription.getName());
                             publishProfile.getSubscriptions().add(profileSubscription);
+                            List<String> resList = apiManager.getResourceGroupNames(subscription.getId());
+                            for (String res : resList) {
+                                List<WebSite> webList = apiManager.getWebSites(subscription.getId(), res);
+                                for (WebSite webSite : webList) {
+                                    WebSiteConfiguration webSiteConfiguration = apiManager.
+                                            getWebSiteConfiguration(webSite.getSubscriptionId(),
+                                                    webSite.getWebSpaceName(), webSite.getName());
+                                    webSiteConfigMap.put(webSite, webSiteConfiguration);
+                                }
+                            }
                         }
+                        AzureSettings.getSafeInstance(AzurePlugin.project).saveWebApps(webSiteConfigMap);
+                        AzureSettings.getSafeInstance(AzurePlugin.project).setwebAppLoaded(true);
                         pd.setCurrentSubscription(publishProfile.getSubscriptions().get(0));
                         try {
                             WizardCacheManager.cachePublishData(null, pd, null);
@@ -136,11 +151,11 @@ public class ManageSubscriptionPanel implements AzureAbstractPanel {
                         } catch (IOException e1) {
                             e1.printStackTrace();
                         }
-
-                        myDialog.getWindow().setCursor(Cursor.getDefaultCursor());
                     }
                 } catch (AzureCmdException e1) {
                     PluginUtil.displayErrorDialogAndLog(message("signInErr"), e1.getMessage(), e1);
+                } finally {
+                    myDialog.getWindow().setCursor(Cursor.getDefaultCursor());
                 }
             }
         });
@@ -213,20 +228,16 @@ public class ManageSubscriptionPanel implements AzureAbstractPanel {
             AzureManager apiManager = AzureManagerImpl.getManager();
             apiManager.clearAuthentication();
             apiManager.clearImportedPublishSettingsFiles();
-
             WizardCacheManager.getPublishDatas().clear();
             AzureSettings.getSafeInstance(project).savePublishDatas();
-
+            AzureSettings.getSafeInstance(AzurePlugin.project).saveWebApps(new HashMap<WebSite, WebSiteConfiguration>());
+            AzureSettings.getSafeInstance(AzurePlugin.project).setwebAppLoaded(false);
             DefaultTableModel model = (DefaultTableModel) subscriptionTable.getModel();
-
             while (model.getRowCount() > 0) {
                 model.removeRow(0);
             }
-
             ApplicationManager.getApplication().saveSettings();
-
             removeButton.setEnabled(false);
-
             refreshSignInCaption();
         }
     }
@@ -276,9 +287,8 @@ public class ManageSubscriptionPanel implements AzureAbstractPanel {
 //                    myDialog.getWindow().setCursor(Cursor.getDefaultCursor());
                 } catch (AzureCmdException e) {
 //                    myDialog.getWindow().setCursor(Cursor.getDefaultCursor());
-                    DefaultLoader.getUIHelper().showException("An error occurred while attempting to get the " +
-                                    "subscription list.", e,
-                            "Azure Services Explorer - Error Getting Subscriptions", false, true);
+                    String msg = "An error occurred while attempting to get the subscription list." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
+                    PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
                 }
             }
         });
@@ -309,9 +319,8 @@ public class ManageSubscriptionPanel implements AzureAbstractPanel {
                 myDialog.close(DialogWrapper.CANCEL_EXIT_CODE, false);
             }
         } catch (AzureCmdException e) {
-            DefaultLoader.getUIHelper().showException("An error occurred while attempting to set the selected " +
-                            "subscriptions.", e,
-                    "Azure Services Explorer - Error Setting Selected Subscriptions", false, true);
+            String msg = "An error occurred while attempting to set the selected subscriptions." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
+            PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
         }
     }
 

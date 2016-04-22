@@ -27,6 +27,8 @@ import com.intellij.openapi.ui.ValidationInfo;
 import com.microsoft.azure.management.websites.models.SkuOptions;
 import com.microsoft.azure.management.websites.models.WebHostingPlan;
 import com.microsoft.azure.management.websites.models.WorkerSizeOptions;
+import com.microsoft.intellij.AzurePlugin;
+import com.microsoft.intellij.AzureSettings;
 import com.microsoft.intellij.util.PluginUtil;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
@@ -75,10 +77,18 @@ public class CreateWebHostingPlanForm extends DialogWrapper {
             }
         });
 
+        pricingComboBox.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent itemEvent) {
+                if (itemEvent.getItem() instanceof String) {
+                    fillWorkerSize((String) pricingComboBox.getSelectedItem());
+                }
+            }
+        });
+
         init();
         fillGeoRegions();
         fillPricingComboBox();
-        fillWorkerSize();
     }
 
     @org.jetbrains.annotations.Nullable
@@ -130,7 +140,10 @@ public class CreateWebHostingPlanForm extends DialogWrapper {
             String msg = message("appPlanMsg");
             if (e.getMessage().contains("MissingSubscriptionRegistration: The subscription is not registered to use namespace")) {
                 msg = msg + " " + message("tierErrMsg");
+            } else if (e.getMessage().contains("Conflict: The maximum number of")) {
+                msg = msg + " " + message("maxPlanMsg");
             }
+            msg = msg + "\n" + String.format(message("webappExpMsg"), e.getMessage());
             PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
         } finally {
             mainPanel.getRootPane().getParent().setCursor(Cursor.getDefaultCursor());
@@ -166,8 +179,7 @@ public class CreateWebHostingPlanForm extends DialogWrapper {
                 geoRegionComboBox.setSelectedIndex(0);
             }
         } catch (AzureCmdException e) {
-            DefaultLoader.getUIHelper().showException("An error occurred while trying to load the geo region list",
-                    e, "Azure Services Explorer - Error Loading Geo Regions", false, true);
+            AzurePlugin.log("Error Loading Geo Regions", e);
         }
     }
 
@@ -182,13 +194,18 @@ public class CreateWebHostingPlanForm extends DialogWrapper {
 
         if (!skuOptions.isEmpty()) {
             pricingComboBox.setSelectedIndex(0);
+            fillWorkerSize((String) pricingComboBox.getSelectedItem());
         }
     }
 
-    private void fillWorkerSize() {
+    private void fillWorkerSize(String price) {
         List<String> sizeList = new ArrayList<String>();
-        for (WorkerSizeOptions size : WorkerSizeOptions.values()) {
-            sizeList.add(size.toString());
+        if (price.equalsIgnoreCase(SkuOptions.Free.name()) || price.equalsIgnoreCase(SkuOptions.Shared.name())) {
+            sizeList.add(WorkerSizeOptions.Small.name());
+        } else {
+            for (WorkerSizeOptions size : WorkerSizeOptions.values()) {
+                sizeList.add(size.toString());
+            }
         }
         DefaultComboBoxModel model = new DefaultComboBoxModel(sizeList.toArray());
         model.setSelectedItem(null);

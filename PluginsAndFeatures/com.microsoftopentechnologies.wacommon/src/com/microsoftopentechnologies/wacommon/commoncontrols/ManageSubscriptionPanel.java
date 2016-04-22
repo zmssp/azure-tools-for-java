@@ -22,7 +22,9 @@ package com.microsoftopentechnologies.wacommon.commoncontrols;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.CheckboxTableViewer;
@@ -45,18 +47,20 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
-import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 
 import com.gigaspaces.azure.util.MethodUtils;
 import com.gigaspaces.azure.util.PreferenceUtil;
+import com.gigaspaces.azure.util.PreferenceWebAppUtil;
 import com.gigaspaces.azure.wizards.WizardCacheManager;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
 import com.microsoft.tooling.msservices.helpers.azure.AzureManager;
 import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
 import com.microsoft.tooling.msservices.model.Subscription;
+import com.microsoft.tooling.msservices.model.ws.WebSite;
+import com.microsoft.tooling.msservices.model.ws.WebSiteConfiguration;
 import com.microsoftopentechnologies.azurecommons.deploy.util.PublishData;
 import com.microsoftopentechnologies.azurecommons.deploy.util.PublishProfile;
 import com.microsoftopentechnologies.azurecommons.exception.RestAPIException;
@@ -119,13 +123,26 @@ public class ManageSubscriptionPanel extends Composite {
 								PublishData pd  = new PublishData();
 								PublishProfile publishProfile = new PublishProfile();
 								pd.setPublishProfile(publishProfile);
+								Map<WebSite, WebSiteConfiguration> webSiteConfigMap = new HashMap<WebSite, WebSiteConfiguration>();
 								for (Subscription subscription : subscriptions) {
 									com.microsoftopentechnologies.azuremanagementutil.model.Subscription profileSubscription =
 											new com.microsoftopentechnologies.azuremanagementutil.model.Subscription();
 									profileSubscription.setSubscriptionID(subscription.getId());
 									profileSubscription.setSubscriptionName(subscription.getName());
 									publishProfile.getSubscriptions().add(profileSubscription);
+									List<String> resList = apiManager.getResourceGroupNames(subscription.getId());
+									for (String res : resList) {
+										List<WebSite> webList = apiManager.getWebSites(subscription.getId(), res);
+										for (WebSite webSite : webList) {
+											WebSiteConfiguration webSiteConfiguration = apiManager.
+													getWebSiteConfiguration(webSite.getSubscriptionId(),
+															webSite.getWebSpaceName(), webSite.getName());
+											webSiteConfigMap.put(webSite, webSiteConfiguration);
+										}
+									}
 								}
+								PreferenceWebAppUtil.save(webSiteConfigMap);
+								PreferenceWebAppUtil.setLoaded(true);
 								pd.setCurrentSubscription(publishProfile.getSubscriptions().get(0));
 								try {
 									WizardCacheManager.cachePublishData(null, pd, null);
@@ -137,9 +154,8 @@ public class ManageSubscriptionPanel extends Composite {
 								}
 								PluginUtil.createSubscriptionTelemetryEvent(oldSubList, "Azure Explorer login");
 							} catch (AzureCmdException e1) {
-								Activator.getDefault().log(e1.getMessage(), e1);
-								DefaultLoader.getUIHelper().showException("An error occurred while attempting to sign in to your account.",
-										e1, "Error", true, true);
+								PluginUtil.displayErrorDialogWithAzureMsg(PluginUtil.getParentShell(), Messages.error,
+										"An error occurred while attempting to sign in to your account.", e1);
 							}
 						}
 					});
@@ -158,7 +174,7 @@ public class ManageSubscriptionPanel extends Composite {
 				ImportSubscriptionDialog dlg = new ImportSubscriptionDialog(getShell());
 				dlg.open();
 				String fileName = ImportSubscriptionDialog.getPubSetFilePath();
-				if (new File(fileName).exists()) {
+				if (fileName != null && !fileName.isEmpty() && new File(fileName).exists()) {
 					try {
 						PluginUtil.showBusy(true, getShell());
 						List<Subscription> oldSubList = AzureManagerImpl.getManager().getFullSubscriptionList();
@@ -230,8 +246,8 @@ public class ManageSubscriptionPanel extends Composite {
 
 
 		} catch (AzureCmdException e) {
-			Activator.getDefault().log(e.getMessage(), e);
-			DefaultLoader.getUIHelper().showException("Error setting selected subscriptions", e, "Error", false, true);
+			PluginUtil.displayErrorDialogWithAzureMsg(PluginUtil.getParentShell(), Messages.error,
+        			"An error occurred while setting selected subscriptions", e);
 		}
 	}
 
@@ -263,8 +279,8 @@ public class ManageSubscriptionPanel extends Composite {
 						removeButton.setEnabled(false);
 					}
 				} catch (AzureCmdException e) {
-					Activator.getDefault().log(e.getMessage(), e);
-					DefaultLoader.getUIHelper().showException("Error getting subscription list", e, "Error", false, true);
+					PluginUtil.displayErrorDialogWithAzureMsg(PluginUtil.getParentShell(), Messages.error,
+		        			"An error occurred while getting subscription list.", e);
 				} finally {
 					tableViewer.refresh();
 					PluginUtil.showBusy(false, getShell());
@@ -417,7 +433,7 @@ public class ManageSubscriptionPanel extends Composite {
 	}
 
 	private void clearSubscriptions(boolean isSigningOut) {
-		boolean choice = MessageDialog.openConfirm(new Shell(),
+		boolean choice = MessageDialog.openConfirm(getShell(),
 				(isSigningOut
 						? "Clear Subscriptions"
 								: "Sign out"),
@@ -432,12 +448,10 @@ public class ManageSubscriptionPanel extends Composite {
 			PreferenceUtil.save();
 			subscriptionList.clear();
 			tableViewer.refresh();
-			// todo ?
-			//            DefaultLoader.getIdeHelper().unsetProperty(AppSettingsNames.SELECTED_SUBSCRIPTIONS);
-
 			removeButton.setEnabled(false);
-
 			refreshSignInCaption();
+			PreferenceWebAppUtil.save(new HashMap<WebSite, WebSiteConfiguration>());
+			PreferenceWebAppUtil.setLoaded(false);
 		}
 	}
 

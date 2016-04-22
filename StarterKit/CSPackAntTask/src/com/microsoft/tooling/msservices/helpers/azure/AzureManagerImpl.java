@@ -68,6 +68,7 @@ import javax.xml.xpath.XPathExpressionException;
 
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
+import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -155,7 +156,6 @@ import com.microsoft.windowsazure.management.models.SubscriptionGetResponse;
 import com.microsoft.windowsazure.management.network.NetworkManagementClient;
 import com.microsoft.windowsazure.management.storage.StorageManagementClient;
 import com.microsoftopentechnologies.azuremanagementutil.rest.SubscriptionTransformer;
-import com.microsoftopentechnologies.azuremanagementutil.rest.WindowsAzureRestUtils;
 
 import sun.misc.BASE64Decoder;
 import sun.misc.BASE64Encoder;
@@ -1323,6 +1323,12 @@ public class AzureManagerImpl implements AzureManager {
             throws AzureCmdException {
         return requestManagementSDK(subscriptionId, AzureSDKHelper.getLocations());
     }
+    
+    @NotNull
+    @Override
+    public SubscriptionGetResponse getSubscription(@NotNull Configuration config) throws AzureCmdException {
+    	return AzureSDKHelper.getSubscription(config);
+    }
 
     @NotNull
     @Override
@@ -1498,6 +1504,12 @@ public class AzureManagerImpl implements AzureManager {
     	return requestWebSiteSDK(subscriptionId, AzureSDKHelper.createWebSite(webHostingPlan, webSiteName));
     }
 
+    @NotNull
+    @Override
+	public Void deleteWebSite(@NotNull String subscriptionId, @NotNull String webSpaceName, @NotNull String webSiteName) throws AzureCmdException {
+    	return requestWebSiteSDK(subscriptionId, AzureSDKHelper.deleteWebSite(webSpaceName, webSiteName));
+    }
+
     @Override
     public WebSite getWebSite(@NotNull String subscriptionId, @NotNull final String webSpaceName, @NotNull String webSiteName)
             throws AzureCmdException {
@@ -1571,7 +1583,8 @@ public class AzureManagerImpl implements AzureManager {
     					}
     				});
     			} catch (AzureCmdException ex) {
-    				DefaultLoader.getUIHelper().showException("An error occurred while attempting to deploy web app.",
+    				String msg = "An error occurred while attempting to deploy web app." + "\n" + "(Message from Azure:" + ex.getMessage() + ")";
+    				DefaultLoader.getUIHelper().showException(msg,
     						ex, "MS Services - Error Deploying Web App", false, true);
     			}
     		}
@@ -1636,8 +1649,11 @@ public class AzureManagerImpl implements AzureManager {
 
     		InputStream input = new FileInputStream(artifactPath);
     		if (isDeployRoot) {
+    			removeFtpDirectory(ftp, "/site/wwwroot/webapps/ROOT", "");
     			ftp.storeFile(targetDir + "/ROOT.war", input);
     		} else {
+    			artifactName = artifactName.replaceAll("[^a-zA-Z0-9_-]+","");
+    			removeFtpDirectory(ftp, "/site/wwwroot/webapps/" + artifactName, "");
     			ftp.storeFile(targetDir + "/" + artifactName + ".war", input);
     		}
     		input.close();
@@ -1651,6 +1667,38 @@ public class AzureManagerImpl implements AzureManager {
     			} catch (IOException ignored) {
     			}
     		}
+    	}
+    }
+
+    public static void removeFtpDirectory(FTPClient ftpClient, String parentDir,
+    		String currentDir) throws IOException {
+    	String dirToList = parentDir;
+    	if (!currentDir.equals("")) {
+    		dirToList += "/" + currentDir;
+    	}
+    	FTPFile[] subFiles = ftpClient.listFiles(dirToList);
+    	if (subFiles != null && subFiles.length > 0) {
+    		for (FTPFile ftpFile : subFiles) {
+    			String currentFileName = ftpFile.getName();
+    			if (currentFileName.equals(".") || currentFileName.equals("..")) {
+    				// skip parent directory and the directory itself
+    				continue;
+    			}
+    			String filePath = parentDir + "/" + currentDir + "/" + currentFileName;
+    			if (currentDir.equals("")) {
+    				filePath = parentDir + "/" + currentFileName;
+    			}
+
+    			if (ftpFile.isDirectory()) {
+    				// remove the sub directory
+    				removeFtpDirectory(ftpClient, dirToList, currentFileName);
+    			} else {
+    				// delete the file
+    				ftpClient.deleteFile(filePath);
+    			}
+    		}
+    		// remove the empty directory
+    		ftpClient.removeDirectory(dirToList);
     	}
     }
 
@@ -1822,18 +1870,13 @@ public class AzureManagerImpl implements AzureManager {
             throws AzureCmdException {
         try {
             StringBuilder sb = new StringBuilder();
-
             BufferedReader br = new BufferedReader(new FileReader(publishSettingsFilePath));
             String line = br.readLine();
-
             while (line != null) {
                 sb.append(line);
                 line = br.readLine();
             }
-//            String subscriptionFile = OpenSSLHelper.processCertificate(sb.toString());
-
             String publishSettingsFile = sb.toString();
-
             String managementCertificate = null;
             String serviceManagementUrl = null;
             boolean isPublishSettings2 = true;
@@ -1846,9 +1889,7 @@ public class AzureManagerImpl implements AzureManager {
             }
             NodeList subscriptionNodes = (NodeList) XmlHelper.getXMLValue(publishSettingsFile, "//Subscription",
                     XPathConstants.NODESET);
-
             List<Subscription> subscriptions = new ArrayList<Subscription>();
-
             for (int i = 0; i < subscriptionNodes.getLength(); i++) {
                 Node subscriptionNode = subscriptionNodes.item(i);
                 Subscription subscription = new Subscription();
@@ -1862,16 +1903,13 @@ public class AzureManagerImpl implements AzureManager {
                     subscription.setServiceManagementUrl(serviceManagementUrl);
                 }
                 subscription.setSelected(true);
-
                 Configuration config = AzureSDKHelper.getConfiguration(new File(publishSettingsFilePath), subscription.getId());
-                SubscriptionGetResponse response = WindowsAzureRestUtils.getSubscription(config);
+                SubscriptionGetResponse response = getSubscription(config);
                 com.microsoftopentechnologies.azuremanagementutil.model.Subscription sub = SubscriptionTransformer.transform(response);
                 subscription.setMaxStorageAccounts(sub.getMaxStorageAccounts());
                 subscription.setMaxHostedServices(sub.getMaxHostedServices());
-
                 subscriptions.add(subscription);
             }
-
             return subscriptions;
         } catch (Exception ex) {
             if (ex instanceof AzureCmdException) {

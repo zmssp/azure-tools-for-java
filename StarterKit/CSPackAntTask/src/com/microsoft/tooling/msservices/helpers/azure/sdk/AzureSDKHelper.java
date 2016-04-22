@@ -136,6 +136,7 @@ import com.microsoft.windowsazure.management.configuration.PublishSettingsLoader
 import com.microsoft.windowsazure.management.models.AffinityGroupListResponse;
 import com.microsoft.windowsazure.management.models.LocationsListResponse;
 import com.microsoft.windowsazure.management.models.RoleSizeListResponse;
+import com.microsoft.windowsazure.management.models.SubscriptionGetResponse;
 import com.microsoft.windowsazure.management.network.NetworkManagementClient;
 import com.microsoft.windowsazure.management.network.NetworkManagementService;
 import com.microsoft.windowsazure.management.network.NetworkOperations;
@@ -1067,6 +1068,21 @@ public class AzureSDKHelper {
     }
 
     @NotNull
+    public static SDKRequestCallback<Void, WebSiteManagementClient> deleteWebSite(@NotNull final String webSpaceName,
+    		@NotNull final String webSiteName) {
+    	return new SDKRequestCallback<Void, WebSiteManagementClient>() {
+    		@NotNull
+    		@Override
+    		public Void execute(@NotNull WebSiteManagementClient client)
+    				throws Throwable {
+    			WebSiteDeleteParameters delParam = new WebSiteDeleteParameters(true, true, true);
+    			getWebSiteOperations(client).delete(webSpaceName, webSiteName, null, delParam);
+    			return null;
+    		}
+    	};
+    }
+
+    @NotNull
     public static SDKRequestCallback<WebSite, WebSiteManagementClient> getWebSite(@NotNull final String webSpaceName,
                                                                                      @NotNull final String webSiteName) {
         return new SDKRequestCallback<WebSite, WebSiteManagementClient>() {
@@ -1355,6 +1371,26 @@ public class AzureSDKHelper {
         // mode is active directory
         AuthTokenRequestFilter requestFilter = new AuthTokenRequestFilter(accessToken);
         return client.withRequestFilterFirst(requestFilter);
+    }
+
+    @NotNull
+    public static SubscriptionGetResponse getSubscription(@NotNull Configuration config) throws AzureCmdException {
+    	ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
+    	try {
+    		// change classloader only for intellij plugin - for some reason Eclipse does not need it
+    		if (DefaultLoader.getPluginComponent() != null && DefaultLoader.PLUGIN_ID.equals(DefaultLoader.getPluginComponent().getPluginId())) {
+    			// Change context classloader to class context loader
+    			Thread.currentThread().setContextClassLoader(AzureManagerImpl.class.getClassLoader());
+    		}
+    		ManagementClient client = ManagementService.create(config);
+    		return client.getSubscriptionsOperations().get();
+    	} catch(Exception ex) {
+    		throw new AzureCmdException(ex.getMessage());
+    	}
+    	finally {
+    		// Call Azure API and reset back the context loader
+    		Thread.currentThread().setContextClassLoader(contextLoader);
+    	}
     }
 
     @NotNull
@@ -2735,19 +2771,20 @@ public class AzureSDKHelper {
 //    }
 
     public static Configuration getConfiguration(File file, String subscriptionId) throws IOException {
-        // Get current context class loader
-        ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
-        try {
-            if (DefaultLoader.getPluginComponent() != null && DefaultLoader.PLUGIN_ID.equals(DefaultLoader.getPluginComponent().getPluginId())) {
-                // Change context classloader to class context loader
-                Thread.currentThread().setContextClassLoader(AzureManagerImpl.class.getClassLoader());
-            }
-            Configuration configuration = PublishSettingsLoader.createManagementConfiguration(file.getPath(), subscriptionId);
-            return configuration;
-        } finally {
-            // Call Azure API and reset back the context loader
-            Thread.currentThread().setContextClassLoader(contextLoader);
-        }
+    	// Get current context class loader
+    	ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
+    	try {
+    		// change classloader only for intellij plugin - for some reason Eclipse does not need it
+    		if (DefaultLoader.getPluginComponent() != null && DefaultLoader.PLUGIN_ID.equals(DefaultLoader.getPluginComponent().getPluginId())) {
+    			// Change context classloader to class context loader
+    			Thread.currentThread().setContextClassLoader(AzureManagerImpl.class.getClassLoader());
+    		}
+    		Configuration configuration = PublishSettingsLoader.createManagementConfiguration(file.getPath(), subscriptionId);
+    		return configuration;
+    	} finally {
+    		// Call Azure API and reset back the context loader
+    		Thread.currentThread().setContextClassLoader(contextLoader);
+    	}
     }
 
     public static Configuration loadConfiguration(String subscriptionId, String url) throws IOException {

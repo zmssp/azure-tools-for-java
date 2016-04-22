@@ -1,1 +1,4 @@
-Copy a place holder icon with name certificate.png
+Copy a place holder icons with name
+certificate.png
+publish.png
+RoleFolder.png

@@ -22,13 +22,12 @@ package com.persistent.ui.toolbar;
 import org.eclipse.core.commands.AbstractHandler;
 import org.eclipse.core.commands.ExecutionEvent;
 import org.eclipse.core.commands.ExecutionException;
-import org.eclipse.swt.widgets.Shell;
-
-import waeclipseplugin.Activator;
 
 import com.microsoftopentechnologies.wacommon.commoncontrols.NewCertificateDialog;
 import com.microsoftopentechnologies.wacommon.commoncontrols.NewCertificateDialogData;
 import com.microsoftopentechnologies.wacommon.utils.PluginUtil;
+
+import waeclipseplugin.Activator;
 /**
  * This class creates new self signed certificates.
  */
@@ -42,11 +41,11 @@ public class WANewCertificate extends AbstractHandler {
 			 * as its toolbar button, do not refer any project for JDK path
 			 * just pass empty string.
 			 */
-	        NewCertificateDialog dialog =	new NewCertificateDialog(new Shell(), data, "");
-	        // Open the dialog
-	        dialog.open();
+			NewCertificateDialog dialog = new NewCertificateDialog(PluginUtil.getParentShell(), data, "");
+			// Open the dialog
+			dialog.open();
 		} catch (Exception e) {
-			PluginUtil.displayErrorDialogAndLog(new Shell(), Messages.newCertErrTtl,
+			PluginUtil.displayErrorDialogAndLog(PluginUtil.getParentShell(), Messages.newCertErrTtl,
 												Messages.newCertMsg, e);
 			Activator.getDefault().log(Messages.newCertMsg, e);
 		}

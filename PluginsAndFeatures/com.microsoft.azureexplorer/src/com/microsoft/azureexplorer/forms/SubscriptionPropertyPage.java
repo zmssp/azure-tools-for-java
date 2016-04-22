@@ -19,6 +19,37 @@
  */
 package com.microsoft.azureexplorer.forms;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.viewers.CheckboxTableViewer;
+import org.eclipse.jface.viewers.ICheckStateProvider;
+import org.eclipse.jface.viewers.ILabelProviderListener;
+import org.eclipse.jface.viewers.ISelectionChangedListener;
+import org.eclipse.jface.viewers.IStructuredContentProvider;
+import org.eclipse.jface.viewers.ITableLabelProvider;
+import org.eclipse.jface.viewers.SelectionChangedEvent;
+import org.eclipse.jface.viewers.Viewer;
+import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.events.SelectionListener;
+import org.eclipse.swt.graphics.Image;
+import org.eclipse.swt.layout.GridData;
+import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.widgets.Button;
+import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Shell;
+import org.eclipse.swt.widgets.Table;
+import org.eclipse.swt.widgets.TableColumn;
+
+import com.gigaspaces.azure.util.MethodUtils;
+import com.gigaspaces.azure.util.PreferenceUtil;
 import com.gigaspaces.azure.wizards.WizardCacheManager;
 import com.microsoft.azureexplorer.Activator;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
@@ -30,28 +61,8 @@ import com.microsoftopentechnologies.azurecommons.deploy.util.PublishData;
 import com.microsoftopentechnologies.azurecommons.deploy.util.PublishProfile;
 import com.microsoftopentechnologies.azurecommons.exception.RestAPIException;
 import com.microsoftopentechnologies.wacommon.commoncontrols.ImportSubscriptionDialog;
-import com.microsoftopentechnologies.wacommon.telemetry.AppInsightsCustomEvent;
+import com.microsoftopentechnologies.wacommon.utils.Messages;
 import com.microsoftopentechnologies.wacommon.utils.PluginUtil;
-import com.gigaspaces.azure.util.PreferenceUtil;
-import com.gigaspaces.azure.util.MethodUtils;
-import org.eclipse.jface.dialogs.Dialog;
-import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.jface.viewers.*;
-import org.eclipse.swt.SWT;
-import org.eclipse.swt.events.SelectionAdapter;
-import org.eclipse.swt.events.SelectionEvent;
-import org.eclipse.swt.events.SelectionListener;
-import org.eclipse.swt.graphics.Image;
-import org.eclipse.swt.layout.GridData;
-import org.eclipse.swt.layout.GridLayout;
-import org.eclipse.swt.widgets.*;
-import org.osgi.framework.Bundle;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import java.io.File;
-import java.io.IOException;
 
 public class SubscriptionPropertyPage extends Dialog {
 
@@ -129,17 +140,15 @@ public class SubscriptionPropertyPage extends Dialog {
                             WizardCacheManager.cachePublishData(null, pd, null);
                             PreferenceUtil.save();
                         } catch (RestAPIException e1) {
-                            e1.printStackTrace();
+                           Activator.getDefault().log(Messages.err, e1);
                         } catch (IOException e1) {
-                            e1.printStackTrace();
+                        	Activator.getDefault().log(Messages.err, e1);
                         }
-                        
-
                         PluginUtil.showBusy(false);
                     }
                 } catch (AzureCmdException e1) {
-                    DefaultLoader.getUIHelper().showException("An error occurred while attempting to sign in to your account.",
-                    		e1, "Error", true, true);
+                	PluginUtil.displayErrorDialogWithAzureMsg(PluginUtil.getParentShell(), Messages.err,
+                			"An error occurred while attempting to sign in to your account.", e1);
                 }
             }
 
@@ -213,15 +222,9 @@ public class SubscriptionPropertyPage extends Dialog {
                 selectedList.add(((Subscription) s).getId());
             }
             AzureManagerImpl.getManager().setSelectedSubscriptions(selectedList);
-
-            //Saving the project is necessary to save the changes on the PropertiesComponent
-//            if (project != null) {
-//                project.save();
-//            }
-
-
         } catch (AzureCmdException e) {
-            DefaultLoader.getUIHelper().showException("Error setting selected subscriptions", e, "Error", false, true);
+        	PluginUtil.displayErrorDialogWithAzureMsg(PluginUtil.getParentShell(), Messages.err,
+        			"An error occurred while selecting subscription.", e);
         }
         return super.close();
     }
@@ -252,7 +255,8 @@ public class SubscriptionPropertyPage extends Dialog {
                         removeButton.setEnabled(false);
                     }
                 } catch (AzureCmdException e) {
-                    DefaultLoader.getUIHelper().showException("Error getting subscription list", e, "Error", false, true);
+                	PluginUtil.displayErrorDialogWithAzureMsg(PluginUtil.getParentShell(), "Error creating storage account",
+                			"An error occurred while loading the subscription list.", e);
                 } finally {
                     tableViewer.refresh();
                     PluginUtil.showBusy(false, getShell());
@@ -401,7 +405,7 @@ public class SubscriptionPropertyPage extends Dialog {
     }
 
     private void clearSubscriptions(boolean isSigningOut) {
-        boolean choice = MessageDialog.openConfirm(new Shell(),
+        boolean choice = MessageDialog.openConfirm(PluginUtil.getParentShell(),
                 (isSigningOut
                         ? "Clear Subscriptions"
                         : "Sign out"),
@@ -415,11 +419,7 @@ public class SubscriptionPropertyPage extends Dialog {
             WizardCacheManager.clearSubscriptions();
             subscriptionList.clear();
             tableViewer.refresh();
-            // todo ?
-//            DefaultLoader.getIdeHelper().unsetProperty(AppSettingsNames.SELECTED_SUBSCRIPTIONS);
-
             removeButton.setEnabled(false);
-
             refreshSignInCaption();
         }
     }

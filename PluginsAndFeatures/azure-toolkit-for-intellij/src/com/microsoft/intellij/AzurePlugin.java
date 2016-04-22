@@ -30,8 +30,10 @@ import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.module.ModuleTypeId;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.startup.StartupManager;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.util.PlatformUtils;
+import com.intellij.util.containers.HashSet;
 import com.interopbridges.tools.windowsazure.WindowsAzureProjectManager;
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResource;
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResourceRegistry;
@@ -61,6 +63,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
+
 import org.w3c.dom.Document;
 
 import static com.microsoft.intellij.ui.messages.AzureBundle.message;
@@ -69,9 +73,9 @@ import static com.microsoft.intellij.ui.messages.AzureBundle.message;
 public class AzurePlugin extends AbstractProjectComponent {
     private static final Logger LOG = Logger.getInstance("#com.microsoft.intellij.AzurePlugin");
     public static final String PLUGIN_ID = "azure-toolkit-for-intellij";
-    public static final String COMPONENTSETS_VERSION = "2.8.2"; // todo: temporary fix!
-    public static final String PLUGIN_VERSION = "1.2";
-    private static final String PREFERENCESETS_VERSION = "2.8.2";
+    public static final String COMPONENTSETS_VERSION = "2.9.0"; // todo: temporary fix!
+    public static final String PLUGIN_VERSION = "1.3";
+    private static final String PREFERENCESETS_VERSION = "2.9.0";
     public static final String AZURE_LIBRARIES_VERSION = "0.9.2";
     public static final String QPID_LIBRARIES_VERSION = "0.19.0";
     public final static int REST_SERVICE_MAX_RETRY_COUNT = 7;
@@ -95,7 +99,7 @@ public class AzurePlugin extends AbstractProjectComponent {
     String dataFile = WAHelper.getTemplateFile(message("dataFileName"));
 
     private final AzureSettings azureSettings;
-    Project project;
+    public static Project project;
 
     public AzurePlugin(Project project) {
         super(project);
@@ -124,6 +128,7 @@ public class AzurePlugin extends AbstractProjectComponent {
                 copyPluginComponents();
                 initializeTelemetry();
                 clearTempDirectory();
+                loadWebappsSettings();
             } catch (Exception e) {
             /* This is not a user initiated task
                So user should not get any exception prompt.*/
@@ -233,6 +238,31 @@ public class AzurePlugin extends AbstractProjectComponent {
         if (projFile != null) {
             WAEclipseHelperMethods.deleteDirectory(projFile);
         }
+    }
+
+    private void loadWebappsSettings() {
+        StartupManager.getInstance(project).runWhenProjectIsInitialized(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        Module[] modules = ModuleManager.getInstance(project).getModules();
+                        Set<String> javaModules = new HashSet<String>();
+                        for (Module module : modules) {
+                            if (ModuleTypeId.JAVA_MODULE.equals(module.getOptionValue(Module.ELEMENT_TYPE))) {
+                                javaModules.add(module.getName());
+                            }
+                        }
+                        Set<String> keys = AzureSettings.getSafeInstance(project).getPropertyKeys();
+                        for (String key : keys) {
+                            if (key.endsWith(".webapps")) {
+                                String projName = key.substring(0, key.lastIndexOf("."));
+                                if (!javaModules.contains(projName)) {
+                                    AzureSettings.getSafeInstance(project).unsetProperty(key);
+                                }
+                            }
+                        }
+                    }
+                });
     }
 
     private void telemetryAI() {

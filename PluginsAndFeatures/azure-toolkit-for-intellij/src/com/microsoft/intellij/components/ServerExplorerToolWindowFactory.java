@@ -34,6 +34,8 @@ import com.intellij.openapi.wm.ToolWindowFactory;
 import com.intellij.openapi.wm.ex.ToolWindowEx;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.treeStructure.Tree;
+import com.microsoft.intellij.AzurePlugin;
+import com.microsoft.intellij.AzureSettings;
 import com.microsoft.intellij.forms.ManageSubscriptionPanel;
 import com.microsoft.intellij.helpers.UIHelperImpl;
 import com.microsoft.intellij.ui.components.DefaultDialogWrapper;
@@ -44,6 +46,7 @@ import com.microsoft.tooling.msservices.helpers.collections.ObservableList;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeAction;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureServiceModule;
+import com.microsoftopentechnologies.azurecommons.exception.RestAPIException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -106,6 +109,9 @@ public class ServerExplorerToolWindowFactory implements ToolWindowFactory, Prope
         root.add(createTreeNode(azureServiceModule));
 
         // kick-off asynchronous load of child nodes on all the modules
+        if (AzureSettings.getSafeInstance(AzurePlugin.project).iswebAppLoaded()) {
+            AzureServiceModule.webSiteConfigMap = AzureSettings.getSafeInstance(AzurePlugin.project).loadWebApps();
+        }
         azureServiceModule.load();
 
         return root;
@@ -146,9 +152,11 @@ public class ServerExplorerToolWindowFactory implements ToolWindowFactory, Prope
 
         for (final NodeAction nodeAction : node.getNodeActions()) {
             JMenuItem menuItem = new JMenuItem(nodeAction.getName());
-            menuItem.setIconTextGap(16);
+//            menuItem.setIconTextGap(16);
             menuItem.setEnabled(nodeAction.isEnabled());
-
+            if (nodeAction.getIconPath() != null) {
+                menuItem.setIcon(loadIcon(nodeAction.getIconPath()));
+            }
             // delegate the menu item click to the node action's listeners
             menuItem.addActionListener(new ActionListener() {
                 @Override
@@ -310,11 +318,6 @@ public class ServerExplorerToolWindowFactory implements ToolWindowFactory, Prope
             // setup a tooltip
             setToolTipText(node.getName());
         }
-
-        private ImageIcon loadIcon(String iconPath) {
-            URL url = NodeTreeCellRenderer.class.getResource("/icons/" + iconPath);
-            return new ImageIcon(url);
-        }
     }
 
     private void addToolbarItems(ToolWindow toolWindow) {
@@ -325,6 +328,7 @@ public class ServerExplorerToolWindowFactory implements ToolWindowFactory, Prope
                     new AnAction("Refresh", "Refresh Service List", UIHelperImpl.loadIcon("refresh.png")) {
                         @Override
                         public void actionPerformed(AnActionEvent event) {
+                            AzureServiceModule.webSiteConfigMap = null;
                             azureServiceModule.load();
                         }
                     },
@@ -349,5 +353,10 @@ public class ServerExplorerToolWindowFactory implements ToolWindowFactory, Prope
                         }
                     });
         }
+    }
+
+    private ImageIcon loadIcon(String iconPath) {
+        URL url = NodeTreeCellRenderer.class.getResource("/icons/" + iconPath);
+        return new ImageIcon(url);
     }
 }

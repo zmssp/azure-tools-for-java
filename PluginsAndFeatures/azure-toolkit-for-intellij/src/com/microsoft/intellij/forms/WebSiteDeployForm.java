@@ -27,10 +27,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
+import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.ui.ValidationInfo;
+import com.microsoft.intellij.AzurePlugin;
+import com.microsoft.intellij.AzureSettings;
 import com.microsoft.intellij.ui.components.DefaultDialogWrapper;
+import com.microsoft.intellij.util.AppInsightsCustomEvent;
+import com.microsoft.intellij.util.PluginUtil;
 import com.microsoft.intellij.wizards.WizardCacheManager;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.helpers.IDEHelper.ArtifactDescriptor;
@@ -68,21 +74,31 @@ public class WebSiteDeployForm extends DialogWrapper {
     private JButton buttonEditSubscriptions;
     private JButton buttonAddApp;
     private JCheckBox chkBoxDeployRoot;
+    private JButton buttonDel;
+    private Module module;
     private Project project;
     private WebSite selectedWebSite;
     private CancellableTaskHandle fillListTaskHandle;
     private String nameToSelect = "";
     List<Subscription> subscriptionList = new ArrayList<Subscription>();
     List<WebSite> webSiteList = new ArrayList<WebSite>();
+    Map<WebSite, WebSiteConfiguration> webSiteConfigMap = new HashMap<WebSite, WebSiteConfiguration>();
 
-    public WebSiteDeployForm(@org.jetbrains.annotations.Nullable Project project) {
-        super(project, true, IdeModalityType.PROJECT);
-        this.project = project;
+    public WebSiteDeployForm(Module module) {
+        super(module.getProject(), true, IdeModalityType.PROJECT);
+        this.module = module;
+        this.project = module.getProject();
         setTitle(message("webAppTtl"));
         buttonAddApp.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
                 createWebApp();
+            }
+        });
+        buttonDel.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                deleteWebApp();
             }
         });
         buttonEditSubscriptions.addActionListener(new ActionListener() {
@@ -96,7 +112,38 @@ public class WebSiteDeployForm extends DialogWrapper {
             }
         });
         init();
+        String nameToSelectCached = DefaultLoader.getIdeHelper().getProperty(String.format("%s.webapps", module.getName()));
+        if (nameToSelectCached != null) {
+            nameToSelect = nameToSelectCached;
+        }
         fillList();
+    }
+
+    void deleteWebApp() {
+        if (selectedWebSite != null) {
+            String name = selectedWebSite.getName();
+            int choice = Messages.showOkCancelDialog(String.format(message("delMsg"), name), message("delTtl"), Messages.getQuestionIcon());
+            if (choice == Messages.OK) {
+                try {
+                    AzureManagerImpl.getManager().deleteWebSite(selectedWebSite.getSubscriptionId(),
+                            selectedWebSite.getWebSpaceName(), name);
+                    webSiteList.remove(webSiteJList.getSelectedIndex());
+                    webSiteConfigMap.remove(selectedWebSite);
+                    AzureSettings.getSafeInstance(AzurePlugin.project).saveWebApps(webSiteConfigMap);
+                    selectedWebSite = null;
+                    if (webSiteConfigMap.isEmpty()) {
+                        setMessages("There are no Azure web apps in the imported subscriptions.");
+                    } else {
+                        setWebApps(webSiteConfigMap);
+                    }
+                } catch (AzureCmdException e) {
+                    String msg = message("delWebErr") + "\n" + String.format(message("webappExpMsg"), e.getMessage());
+                    PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
+                }
+            }
+        } else {
+            PluginUtil.displayErrorDialog(message("errTtl"), "Select a web app container to delete.");
+        }
     }
 
     @Override
@@ -107,7 +154,7 @@ public class WebSiteDeployForm extends DialogWrapper {
     @org.jetbrains.annotations.Nullable
     @Override
     protected ValidationInfo doValidate() {
-        return (selectedWebSite != null) ? null : new ValidationInfo("Select a valid web app container as the target for the deployment.", webSiteJList);
+        return (selectedWebSite != null && isDeployable(webSiteConfigMap, webSiteList, webSiteJList.getSelectedIndex())) ? null : new ValidationInfo("Select a valid web app container as the target for the deployment.", webSiteJList);
     }
 
     @org.jetbrains.annotations.Nullable
@@ -137,13 +184,18 @@ public class WebSiteDeployForm extends DialogWrapper {
             WebSitePublishSettings webSitePublishSettings = manager.
                     getWebSitePublishSettings(webSite.getSubscriptionId(), webSite.getWebSpaceName(), webSite.getName());
             WebSitePublishSettings.PublishProfile profile = webSitePublishSettings.getPublishProfileList().get(0);
+            String destAppUrl = "";
             if (profile != null) {
-                url = profile.getDestinationAppUrl();
+                destAppUrl = profile.getDestinationAppUrl();
+                url = destAppUrl;
                 if (!chkBoxDeployRoot.isSelected()) {
-                    url = url + "/" + artifactDescriptor.getName();
+                    String artifactName = artifactDescriptor.getName().replaceAll("[^a-zA-Z0-9_-]+","");
+                    url = url + "/" + artifactName;
                 }
             }
+            AppInsightsCustomEvent.createFTPEvent("WebAppFTP", destAppUrl, artifactDescriptor.getName(), selectedWebSite.getSubscriptionId());
         }
+        DefaultLoader.getIdeHelper().setProperty(String.format("%s.webapps", module.getName()), selectedWebSite.getName());
         return url;
     }
 
@@ -167,7 +219,6 @@ public class WebSiteDeployForm extends DialogWrapper {
                 final Object lock = new Object();
 
                 CancellationHandle cancellationHandle;
-                Map<WebSite, WebSiteConfiguration> webSiteConfigMap;
 
                 @Override
                 public synchronized void run(final CancellationHandle cancellationHandle) throws Throwable {
@@ -237,44 +288,43 @@ public class WebSiteDeployForm extends DialogWrapper {
 
                 @Override
                 public void onError(@NotNull Throwable throwable) {
-                    DefaultLoader.getUIHelper().showException("An error occurred while trying to load the web apps info",
-                            throwable, "Azure Services Explorer - Error Loading Web Apps Info", false, true);
+                    AzurePlugin.log(throwable.getStackTrace().toString());
                 }
 
                 private void loadWebSiteConfigurations(final Subscription subscription,
                                                        final SettableFuture<Void> subscriptionFuture) {
                     try {
-                        List<ListenableFuture<Void>> webSpaceFutures = new ArrayList<ListenableFuture<Void>>();
-
-                        for (final String webSpace : manager.getResourceGroupNames(subscription.getId())) {
-                            if (cancellationHandle.isCancelled()) {
-                                subscriptionFuture.set(null);
-                                return;
+                        if (AzureSettings.getSafeInstance(AzurePlugin.project).iswebAppLoaded()) {
+                            webSiteConfigMap = AzureSettings.getSafeInstance(AzurePlugin.project).loadWebApps();
+                            subscriptionFuture.set(null);
+                        } else {
+                            List<ListenableFuture<Void>> webSpaceFutures = new ArrayList<ListenableFuture<Void>>();
+                            for (final String webSpace : manager.getResourceGroupNames(subscription.getId())) {
+                                if (cancellationHandle.isCancelled()) {
+                                    subscriptionFuture.set(null);
+                                    return;
+                                }
+                                final SettableFuture<Void> webSpaceFuture = SettableFuture.create();
+                                DefaultLoader.getIdeHelper().executeOnPooledThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        loadWebSiteConfigurations(subscription, webSpace, webSpaceFuture);
+                                    }
+                                });
+                                webSpaceFutures.add(webSpaceFuture);
                             }
-
-                            final SettableFuture<Void> webSpaceFuture = SettableFuture.create();
-
-                            DefaultLoader.getIdeHelper().executeOnPooledThread(new Runnable() {
+                            Futures.addCallback(Futures.allAsList(webSpaceFutures), new FutureCallback<List<Void>>() {
                                 @Override
-                                public void run() {
-                                    loadWebSiteConfigurations(subscription, webSpace, webSpaceFuture);
+                                public void onSuccess(List<Void> voids) {
+                                    subscriptionFuture.set(null);
+                                }
+
+                                @Override
+                                public void onFailure(Throwable throwable) {
+                                    subscriptionFuture.setException(throwable);
                                 }
                             });
-
-                            webSpaceFutures.add(webSpaceFuture);
                         }
-
-                        Futures.addCallback(Futures.allAsList(webSpaceFutures), new FutureCallback<List<Void>>() {
-                            @Override
-                            public void onSuccess(List<Void> voids) {
-                                subscriptionFuture.set(null);
-                            }
-
-                            @Override
-                            public void onFailure(Throwable throwable) {
-                                subscriptionFuture.setException(throwable);
-                            }
-                        });
                     } catch (AzureCmdException ex) {
                         subscriptionFuture.setException(ex);
                     }
@@ -284,22 +334,18 @@ public class WebSiteDeployForm extends DialogWrapper {
                                                        final SettableFuture<Void> webSpaceFuture) {
                     try {
                         List<ListenableFuture<Void>> webSiteFutures = new ArrayList<ListenableFuture<Void>>();
-
                         for (final WebSite webSite : manager.getWebSites(subscription.getId(), webSpace)) {
                             if (cancellationHandle.isCancelled()) {
                                 webSpaceFuture.set(null);
                                 return;
                             }
-
                             final SettableFuture<Void> webSiteFuture = SettableFuture.create();
-
                             DefaultLoader.getIdeHelper().executeOnPooledThread(new Runnable() {
                                 @Override
                                 public void run() {
                                     loadWebSiteConfigurations(subscription, webSpace, webSite, webSiteFuture);
                                 }
                             });
-
                             webSiteFutures.add(webSiteFuture);
                         }
 
@@ -323,7 +369,6 @@ public class WebSiteDeployForm extends DialogWrapper {
                                                        final WebSite webSite,
                                                        final SettableFuture<Void> webSiteFuture) {
                     WebSiteConfiguration webSiteConfiguration;
-
                     try {
                         webSiteConfiguration = AzureManagerImpl.getManager().
                                 getWebSiteConfiguration(webSite.getSubscriptionId(),
@@ -332,18 +377,17 @@ public class WebSiteDeployForm extends DialogWrapper {
                         webSiteConfiguration = new WebSiteConfiguration(webSpace, webSite.getName(),
                                 subscription.getId());
                     }
-
                     synchronized (lock) {
                         webSiteConfigMap.put(webSite, webSiteConfiguration);
+                        AzureSettings.getSafeInstance(AzurePlugin.project).saveWebApps(webSiteConfigMap);
+                        AzureSettings.getSafeInstance(AzurePlugin.project).setwebAppLoaded(true);
                     }
-
                     webSiteFuture.set(null);
                 }
             });
         } catch (AzureCmdException e) {
             selectedWebSite = null;
-            DefaultLoader.getUIHelper().showException("An error occurred while trying to load the web apps info",
-                    e, "Azure Services Explorer - Error Loading Web Apps Info", false, true);
+            AzurePlugin.log("Error Loading Web Apps Info", e);
         }
     }
 
@@ -400,7 +444,7 @@ public class WebSiteDeployForm extends DialogWrapper {
             @Override
             public void valueChanged(ListSelectionEvent listSelectionEvent) {
                 int index = webSiteJList.getSelectedIndex();
-                if (isDeployable(webSiteConfigMap, webSiteList, index)) {
+                if (index >= 0 && webSiteList.size() > index) {
                     selectedWebSite = webSiteList.get(index);
                 } else {
                     selectedWebSite = null;
