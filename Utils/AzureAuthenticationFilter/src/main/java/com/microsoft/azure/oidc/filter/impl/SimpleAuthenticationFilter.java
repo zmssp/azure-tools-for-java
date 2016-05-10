@@ -50,7 +50,6 @@ public final class SimpleAuthenticationFilter implements Filter {
 	private static final String AUTHENTICATION_CONFIGURATION = "authenticationConfiguration";
 	private static final String TOKEN_NAME = "id_token";
 	private static final String ERROR_NAME = "error";
-	private static final String NO_ERROR_STRING = null;
 	private static final String NO_TOKEN_STRING = null;
 	private static final Token NO_TOKEN = null;
 
