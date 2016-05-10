@@ -11,7 +11,8 @@ sourceCompatibility = 1.7
 targetCompatibility = 1.7
 version = '1.0.0'
 
-project.ext.deployDir = 'C:\\GIT\\WildflyAzure\\wildfly-10.0.0.Final\\standalone\\deployments'
+project.ext.deployDirWildfly = 'C:\\GIT\\WildflyAzure\\wildfly-10.0.0.Final\\standalone\\deployments'
+project.ext.deployDirTomcat = 'C:\\GIT\\JavaAzureEE\\webapps'
 
 install {
     repositories.mavenInstaller {
@@ -35,8 +36,14 @@ dependencies {
 task deploylocal() << {
     copy{
         from "${buildDir}\\libs"
-        into "${deployDir}"
+        into "${deployDirWildfly}"
         include '*.war'
     }
-    ant.touch(file:"${deployDir}\\" + rootProject.name + "-" + version + ".war.dodeploy")
+    copy{
+        from "${buildDir}\\libs"
+        into "${deployDirTomcat}"
+        include '*.war'
+        rename rootProject.name + "-" + version + ".war", "ROOT.war"
+    }
+    ant.touch(file:"${deployDirWildfly}\\" + rootProject.name + "-" + version + ".war.dodeploy")
 }
