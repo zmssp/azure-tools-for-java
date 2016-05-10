@@ -5,3 +5,6 @@
 bin/
 
 *.publishsettings
+/.gradle/
+/.classpath
+/.project
