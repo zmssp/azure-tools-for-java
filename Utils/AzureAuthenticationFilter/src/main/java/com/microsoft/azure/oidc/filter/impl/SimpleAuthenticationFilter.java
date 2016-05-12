@@ -102,13 +102,18 @@ public final class SimpleAuthenticationFilter implements Filter {
 	@Override
 	public void init(final FilterConfig filterConfig) throws ServletException {
 		final String securityCacheSizeString = filterConfig.getInitParameter("securityCacheSize");
-		if (securityCacheSizeString == null) {
-			concurrentCacheService.createCache(Boolean.class, "roleCache", 30L, 1000L);
-		} else {
-			concurrentCacheService.createCache(Boolean.class, "roleCache", 30L,
-					Long.parseLong(securityCacheSizeString));
-		}
-		concurrentCacheService.createCache(Configuration.class, "configurationCache", 60L, 1L);
+		final String securityCacheTimeoutString = filterConfig.getInitParameter("securityCacheTimeout");
+		final String configurationCacheTimeoutString = filterConfig.getInitParameter("configurationCacheTimeout");
+		final Long securityCacheSize = securityCacheSizeString == null ? 1000L
+				: Long.parseLong(securityCacheSizeString);
+		final Long securityCacheTimeoutSize = securityCacheTimeoutString == null ? 30L
+				: Long.parseLong(securityCacheTimeoutString);
+		final Long configurationCacheTimeoutSize = configurationCacheTimeoutString == null ? 30L
+				: Long.parseLong(configurationCacheTimeoutString);
+
+		concurrentCacheService.createCache(Boolean.class, "roleCache", securityCacheTimeoutSize, securityCacheSize);
+		concurrentCacheService.createCache(Configuration.class, "configurationCache", configurationCacheTimeoutSize,
+				1L);
 		authenticationConfigurationService.initialise(filterConfig, AUTHENTICATION_CONFIGURATION);
 		algorithmConfigurationService.initialise(filterConfig, ALGORITHM_CONFIGURATION);
 	}
