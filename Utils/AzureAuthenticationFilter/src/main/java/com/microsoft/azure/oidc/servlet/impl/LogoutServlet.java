@@ -73,11 +73,12 @@ public final class LogoutServlet extends HttpServlet {
 			for (Cookie cookie : request.getCookies()) {
 				if (cookie.getName().equals("id_token")) {
 					final Token token = tokenParser.getToken(cookie.getValue());
-					concurrentCacheService.getCache(Boolean.class, "roleCache")
-							.removeWithPrefix(token.getUserID().getValue().concat(":"));
+					final String prefix = token.getUserID().getValue().concat(":");
+					final String prefixMax = prefix + Character.MAX_VALUE;
+					concurrentCacheService.getCache(Boolean.class, "roleCache").removeWithPrefix(prefix, prefixMax);
 				}
 			}
-			
+
 			final Configuration configuration = configurationCache.load();
 			final ApplicationSettings applicationSettings = applicationSettingsLoader.load();
 

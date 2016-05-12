@@ -109,7 +109,9 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 			final Token token, final Boolean isError) throws IOException {
 		final ConcurrentCache<String, Boolean> cache = concurrentCacheService.getCache(Boolean.class, "roleCache");
 		if (cache != null  && token != null) {
-			cache.removeWithPrefix(token.getUserID().getValue().concat(":"));
+			final String prefix = token.getUserID().getValue().concat(":");
+			final String prefixMax = prefix + Character.MAX_VALUE;
+			cache.removeWithPrefix(prefix, prefixMax);
 		}
 		httpResponse.sendRedirect(getAuthenticationEndPoint(httpRequest, token, isError));
 	}

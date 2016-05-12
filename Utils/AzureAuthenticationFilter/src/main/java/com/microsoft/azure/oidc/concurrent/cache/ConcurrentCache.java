@@ -29,7 +29,7 @@ public interface ConcurrentCache<K, V> {
 	
 	void remove(K key);
 
-	void removeWithPrefix(K prefix);
+	void removeWithPrefix(K prefix, K prefixMax);
 
 	void shutdownNow();
 
