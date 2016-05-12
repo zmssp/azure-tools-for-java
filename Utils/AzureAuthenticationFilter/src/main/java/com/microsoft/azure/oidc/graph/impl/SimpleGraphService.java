@@ -77,10 +77,10 @@ public final class SimpleGraphService implements GraphService {
 			return isUserInGroup(applicationSettings.getTenant(), userID, roleID, bearerToken);
 		} catch (GeneralException e) {
 			LOGGER.error("General Exception", e);
-			return Boolean.FALSE;
+			return null;
 		} catch (RuntimeException e) {
 			LOGGER.error(e.getMessage(), e);
-			return Boolean.FALSE;
+			return null;
 		}
 	}
 

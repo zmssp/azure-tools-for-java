@@ -24,8 +24,9 @@ package com.microsoft.azure.oidc.concurrent.cache.impl;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -33,8 +34,8 @@ import java.util.concurrent.TimeUnit;
 import com.microsoft.azure.oidc.concurrent.cache.ConcurrentCache;
 
 public final class TTLConcurrentCache<K, V> implements ConcurrentCache<K, V> {
-	private final ConcurrentMap<K, V> storeMap = new ConcurrentHashMap<K, V>();
-	private final ConcurrentMap<K, Long> timestampMap = new ConcurrentHashMap<K, Long>();
+	private final ConcurrentNavigableMap<K, V> storeMap = new ConcurrentSkipListMap<K, V>();
+	private final ConcurrentNavigableMap<K, Long> timestampMap = new ConcurrentSkipListMap<K, Long>();
 	private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
 	private final List<K> oldestKey = new LinkedList<K>();
 	private final Long ttl;
@@ -63,13 +64,38 @@ public final class TTLConcurrentCache<K, V> implements ConcurrentCache<K, V> {
 	}
 
 	@Override
-	public V get(Object key) {
+	public V get(final K key) {
 		removeIfExpired(key);
 		return storeMap.get(key);
 	}
 
 	@Override
-	public V putIfAbsent(K key, V value) {
+	public void remove(final K key) {
+		synchronized (timestampMap) {
+			timestampMap.remove(key);
+			storeMap.remove(key);
+			oldestKey.remove(key);
+		}
+	}
+
+	@Override
+	public void removeWithPrefix(final K prefix) {
+		synchronized (timestampMap) {
+			final Iterator<K> iterator = storeMap.tailMap(prefix).keySet().iterator();
+			while (iterator.hasNext()) {
+				final String key = iterator.next().toString();
+				if (key.startsWith(prefix.toString())) {
+					timestampMap.remove(key);
+					oldestKey.remove(key);
+					iterator.remove();
+				}
+				break;
+			}
+		}
+	}
+
+	@Override
+	public V putIfAbsent(final K key, final V value) {
 		synchronized (timestampMap) {
 			while (timestampMap.size() > maxSize) {
 				final K oldest = oldestKey.get(0);
