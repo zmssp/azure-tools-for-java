@@ -48,6 +48,9 @@ import com.microsoft.azure.oidc.application.settings.impl.SimpleApplicationSetti
 import com.microsoft.azure.oidc.common.state.State;
 import com.microsoft.azure.oidc.common.state.StateFactory;
 import com.microsoft.azure.oidc.common.state.impl.SimpleStateFactory;
+import com.microsoft.azure.oidc.concurrent.cache.ConcurrentCache;
+import com.microsoft.azure.oidc.concurrent.cache.ConcurrentCacheService;
+import com.microsoft.azure.oidc.concurrent.cache.impl.SimpleConcurrentCacheService;
 import com.microsoft.azure.oidc.configuration.Configuration;
 import com.microsoft.azure.oidc.configuration.ConfigurationCache;
 import com.microsoft.azure.oidc.configuration.impl.SimpleConfigurationCache;
@@ -82,6 +85,8 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 
 	private final ConfigurationCache configurationCache = SimpleConfigurationCache.getInstance();
 
+	private final ConcurrentCacheService concurrentCacheService = SimpleConcurrentCacheService.getInstance();
+
 	private final StateFactory stateFactory = SimpleStateFactory.getInstance();
 
 	private final AuthenticationConfigurationService authenticationConfigurationService = SimpleAuthenticationConfigurationService
@@ -102,6 +107,10 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 	@Override
 	public void doAuthenticateAction(final HttpServletRequest httpRequest, final HttpServletResponse httpResponse,
 			final Token token, final Boolean isError) throws IOException {
+		final ConcurrentCache<String, Boolean> cache = concurrentCacheService.getCache(Boolean.class, "roleCache");
+		if (cache != null  && token != null) {
+			cache.removeWithPrefix(token.getUserID().getValue().concat(":"));
+		}
 		httpResponse.sendRedirect(getAuthenticationEndPoint(httpRequest, token, isError));
 	}
 
@@ -328,10 +337,9 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 			final String stateString = mapper.writeValueAsString(state);
 			final String urlString = String.format(
 					"%s%sclient_Id=%s&state=%s&nonce=defaultNonce&redirect_uri=%s&scope=openid%%20offline_access&response_type=code+id_token&prompt=%s&response_mode=form_post",
-					configuration.getAuthenticationEndPoint(), 
+					configuration.getAuthenticationEndPoint(),
 					configuration.getAuthenticationEndPoint().getName().contains("?") ? "&" : "?",
-					applicationSettings.getApplicationId(),
-					new String(encoder.encode(stateString.getBytes()), "UTF-8"),
+					applicationSettings.getApplicationId(), new String(encoder.encode(stateString.getBytes()), "UTF-8"),
 					URLEncoder.encode(applicationSettings.getRedirectURL().getValue(), "UTF-8"),
 					token == null ? "login" : "none");
 			return urlString;

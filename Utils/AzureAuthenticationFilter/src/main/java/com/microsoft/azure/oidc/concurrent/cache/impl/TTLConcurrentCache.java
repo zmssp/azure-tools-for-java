@@ -24,7 +24,6 @@ package com.microsoft.azure.oidc.concurrent.cache.impl;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executors;
@@ -88,8 +87,9 @@ public final class TTLConcurrentCache<K, V> implements ConcurrentCache<K, V> {
 					timestampMap.remove(key);
 					oldestKey.remove(key);
 					iterator.remove();
+				} else {
+					break;
 				}
-				break;
 			}
 		}
 	}

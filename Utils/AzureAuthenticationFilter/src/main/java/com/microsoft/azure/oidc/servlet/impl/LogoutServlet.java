@@ -69,6 +69,15 @@ public final class LogoutServlet extends HttpServlet {
 	public void service(final HttpServletRequest request, final HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
+			// clear the cache if possible
+			for (Cookie cookie : request.getCookies()) {
+				if (cookie.getName().equals("id_token")) {
+					final Token token = tokenParser.getToken(cookie.getValue());
+					concurrentCacheService.getCache(Boolean.class, "roleCache")
+							.removeWithPrefix(token.getUserID().getValue().concat(":"));
+				}
+			}
+			
 			final Configuration configuration = configurationCache.load();
 			final ApplicationSettings applicationSettings = applicationSettingsLoader.load();
 
@@ -97,9 +106,6 @@ public final class LogoutServlet extends HttpServlet {
 			// setup clearing the cookies and invalidate the session
 			for (final Cookie cookie : request.getCookies()) {
 				if (cookie.getName().equals("id_token")) {
-					final Token token = tokenParser.getToken(cookie.getValue());
-					concurrentCacheService.getCache(Boolean.class, "roleCache")
-							.removeWithPrefix(token.getUserID().getValue().concat(":"));
 					cookie.setMaxAge(0);
 					response.addCookie(cookie);
 					HttpSession session = request.getSession(false);
