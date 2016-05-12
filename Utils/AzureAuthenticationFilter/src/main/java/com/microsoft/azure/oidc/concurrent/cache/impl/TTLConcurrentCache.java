@@ -80,17 +80,12 @@ public final class TTLConcurrentCache<K, V> implements ConcurrentCache<K, V> {
 	@Override
 	public void removeWithPrefix(final K prefix, final K prefixMax) {
 		synchronized (timestampMap) {
-			@SuppressWarnings("unchecked")
 			final Iterator<K> iterator = storeMap.subMap(prefix, prefixMax).keySet().iterator();
 			while (iterator.hasNext()) {
-				final String key = iterator.next().toString();
-				if (key.startsWith(prefix.toString())) {
-					timestampMap.remove(key);
-					oldestKey.remove(key);
-					iterator.remove();
-				} else {
-					break;
-				}
+				final K key = iterator.next();
+				timestampMap.remove(key);
+				oldestKey.remove(key);
+				iterator.remove();
 			}
 		}
 	}
