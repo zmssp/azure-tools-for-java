@@ -11,8 +11,6 @@
 		<properties>
 			<property name="openjpa.jdbc.Schema" value="dbo" />
 			<property name="openjpa.jdbc.DBDictionary" value="sqlserver" />
-            <property name="jboss.entity.manager.factory.jndi.name" value="java:jboss/persistence/demo-unit-factory" />
-            <property name="jboss.entity.manager.jndi.name" value="java:/persistence/demo-unit"/>
 		</properties>
 	</persistence-unit>
 </persistence>
