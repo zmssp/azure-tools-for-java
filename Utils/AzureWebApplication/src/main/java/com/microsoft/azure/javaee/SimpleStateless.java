@@ -27,7 +27,10 @@ import javax.ejb.LocalBean;
 import javax.ejb.Stateless;
 import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 
@@ -55,6 +58,19 @@ public class SimpleStateless {
 
     @SuppressWarnings("unchecked")
 	public List<Movie> getMovies() {
+    	try {
+        	final InitialContext ic = new InitialContext();
+			final EntityManagerFactory factory = (EntityManagerFactory)ic.lookup("java:jboss/persistence/demo-unit-factory");
+			if(factory == null) {
+				System.out.println("FACTORY NOT FOUND");
+			}
+			final EntityManager unit = (EntityManager)ic.lookup("java:/persistence/demo-unit");
+			if(unit == null) {
+				System.out.println("UNIT NOT FOUND");
+			}
+		} catch (NamingException e) {
+			e.printStackTrace();
+		}
         Query query = entityManager.createQuery("SELECT m from Movie as m");
         return query.getResultList();
     }
