@@ -234,7 +234,7 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 		if (isRootContext) {
 			uriString = httpRequest.getRequestURI();
 		} else {
-			final int length = httpRequest.getRequestURI().length();
+			final int length = httpRequest.getRequestURI().indexOf('/', 1);
 			uriString = httpRequest.getRequestURI().substring(length);
 		}
 		for (final Pattern pattern : authenticationConfigurationService.get().getExclusionRegexPatternList()) {
