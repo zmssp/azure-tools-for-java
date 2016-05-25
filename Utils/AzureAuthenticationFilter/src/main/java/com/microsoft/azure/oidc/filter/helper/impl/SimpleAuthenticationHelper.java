@@ -101,14 +101,42 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 			doExcludedAction(chain, httpRequest, httpResponse, token);
 			return;
 		}
+		if (isService(httpRequest)) {
+			doNotAuthenticatedAction(httpResponse);
+			return;
+		}
 		doAuthenticateAction(httpRequest, httpResponse, token, isError);
+	}
+
+	private Boolean isService(final HttpServletRequest httpRequest) {
+		String uriString = null;
+		final Boolean isRootContext = "".equals(httpRequest.getContextPath());
+		if (isRootContext) {
+			uriString = httpRequest.getRequestURI();
+		} else {
+			final int length = httpRequest.getRequestURI().indexOf('/', 1);
+			uriString = httpRequest.getRequestURI().substring(length);
+		}
+		for (final Pattern pattern : authenticationConfigurationService.get().getServiceRegexPatternList()) {
+			final Matcher matcher = pattern.matcher(uriString);
+			final Boolean isMatchFound = matcher.matches();
+			if (isMatchFound) {
+				return Boolean.TRUE;
+			}
+		}
+		return Boolean.FALSE;
+	}
+
+	private void doNotAuthenticatedAction(final HttpServletResponse httpServletResponse) throws IOException {
+		httpServletResponse.setHeader("WWW-Authenticate", "Bearer realm=\"Application\"");
+		httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Not Authenticated");
 	}
 
 	@Override
 	public void doAuthenticateAction(final HttpServletRequest httpRequest, final HttpServletResponse httpResponse,
 			final Token token, final Boolean isError) throws IOException {
 		final ConcurrentCache<String, Boolean> cache = concurrentCacheService.getCache(Boolean.class, "roleCache");
-		if (cache != null  && token != null) {
+		if (cache != null && token != null) {
 			final String prefix = token.getUserID().getValue().concat(":");
 			final String prefixMax = prefix + Character.MAX_VALUE;
 			cache.removeWithPrefix(prefix, prefixMax);
@@ -160,6 +188,11 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 		final String tokenString = httpRequest.getParameter(tokenName);
 		if (tokenString != null) {
 			return addCookie(httpRequest, httpResponse, tokenName, tokenString);
+		}
+
+		final String header = getBearer(httpRequest);
+		if (header != null) {
+			return header;
 		}
 
 		final Cookie cookieToken = getCookie(httpRequest, tokenName);
@@ -348,6 +381,24 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 		} catch (IOException e) {
 			throw new GeneralException("IO Exception", e);
 		}
+	}
+
+	private String getBearer(final HttpServletRequest httpRequest) {
+		if (httpRequest == null) {
+			throw new PreconditionException("Required parameter is null");
+		}
+		final String header = httpRequest.getHeader("Authorization");
+		if (header != null) {
+			final String[] parts = header.split(" ");
+			if (parts.length != 2) {
+				return null;
+			}
+			if (!parts[0].equals("Bearer")) {
+				return null;
+			}
+			return parts[1];
+		}
+		return null;
 	}
 
 	private Cookie getCookie(final HttpServletRequest httpRequest, final String cookieName) {
