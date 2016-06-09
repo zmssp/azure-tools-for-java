@@ -11,7 +11,7 @@ sourceCompatibility = 1.7
 targetCompatibility = 1.7
 version = '1.0.0'
 
-project.ext.deployDir = 'C:\\Wildfly\\wildfly-10.0.0.Final\\standalone\\deployments'
+project.ext.deployDir = 'C:\\GIT\\WildflyAzure\\wildfly-10.0.0.Final\\standalone\\deployments'
 
 install {
     repositories.mavenInstaller {

@@ -38,21 +38,24 @@ public class SimpleConcurrentCacheService implements ConcurrentCacheService {
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public <V> ConcurrentCache<String, V> createCache(Class<V> clazzV, String name, Long ttl, Long maxSize) {
-		final ConcurrentCache<String, Object> concurrentCache = concurrentCacheFactory.createConcurrentCache(ttl, maxSize);
+	public <V> ConcurrentCache<String, V> createCache(final Class<V> clazzV, final String name, final Long ttl,
+			final Long maxSize) {
+		final ConcurrentCache<String, Object> concurrentCache = concurrentCacheFactory.createConcurrentCache(ttl,
+				maxSize);
 		cacheMap.put(name, concurrentCache);
 		return (ConcurrentCache<String, V>) concurrentCache;
 	}
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public <V> ConcurrentCache<String, V> getCache(Class<V> classV, String name) {
+	public <V> ConcurrentCache<String, V> getCache(final Class<V> classV, final String name) {
 		return (ConcurrentCache<String, V>) cacheMap.get(name);
 	}
 
 	@Override
 	public void shutdownNow() {
-		for(@SuppressWarnings("rawtypes") final ConcurrentCache cache: cacheMap.values()) {
+		for (@SuppressWarnings("rawtypes")
+		final ConcurrentCache cache : cacheMap.values()) {
 			cache.shutdownNow();
 		}
 		cacheMap.clear();

@@ -26,7 +26,6 @@ import java.security.Principal;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
 
-import com.microsoft.azure.oidc.exception.GeneralException;
 import com.microsoft.azure.oidc.exception.PreconditionException;
 import com.microsoft.azure.oidc.graph.GraphCache;
 import com.microsoft.azure.oidc.token.Token;
@@ -73,7 +72,8 @@ public class AuthenticationRequestWrapper extends HttpServletRequestWrapper {
 		}
 		final Boolean result = graphCache.isUserInRole(token.getUserID().getValue(), role);
 		if (result == null) {
-			throw new GeneralException("Authorization Error");
+			graphCache.clearIsUserInRole(token.getUserID().getValue(), role);
+			return Boolean.FALSE;
 		}
 		return result;
 	}

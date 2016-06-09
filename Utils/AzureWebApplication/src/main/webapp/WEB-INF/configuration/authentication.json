@@ -3,7 +3,10 @@
     "/",
     "/index.xhtml",
     "/logout",
-    "unauthenticated/*"
+    "unauthenticated/*",
+    "/api/*"
+  ],
+  "serviceUriPatterns": [
   ],
   "authorisationUriPatterns": [
     {"uriPattern": "/authorised.xhtml", "roles": [ "JavaEEManagers", "JavaEEPowerUsers" ]},

@@ -27,6 +27,10 @@ import java.util.regex.Pattern;
 
 public interface AuthenticationConfiguration {
 
+	List<String> getServiceUriPatternList();
+
+	List<Pattern> getServiceRegexPatternList();
+
 	List<String> getExclusionUriPatternList();
 
 	List<Pattern> getExclusionRegexPatternList();

@@ -38,7 +38,13 @@ public class SimpleGraphCache implements GraphCache {
 	private final ConcurrentCacheService concurrentCacheService = SimpleConcurrentCacheService.getInstance();
 
 	@Override
-	public Boolean isUserInRole(String userID, String role) {
+	public void clearIsUserInRole(final String userID, final String role) {
+		final String key = String.format("%s:%s", userID, role);
+		concurrentCacheService.getCache(Boolean.class, "roleCache").remove(key);
+	}
+	
+	@Override
+	public Boolean isUserInRole(final String userID, final String role) {
 		final String key = String.format("%s:%s", userID, role);
 		final Boolean entry = concurrentCacheService.getCache(Boolean.class, "roleCache").get(key);
 		if (entry != null) {

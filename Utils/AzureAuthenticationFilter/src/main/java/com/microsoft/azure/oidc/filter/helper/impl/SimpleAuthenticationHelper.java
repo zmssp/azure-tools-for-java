@@ -48,6 +48,9 @@ import com.microsoft.azure.oidc.application.settings.impl.SimpleApplicationSetti
 import com.microsoft.azure.oidc.common.state.State;
 import com.microsoft.azure.oidc.common.state.StateFactory;
 import com.microsoft.azure.oidc.common.state.impl.SimpleStateFactory;
+import com.microsoft.azure.oidc.concurrent.cache.ConcurrentCache;
+import com.microsoft.azure.oidc.concurrent.cache.ConcurrentCacheService;
+import com.microsoft.azure.oidc.concurrent.cache.impl.SimpleConcurrentCacheService;
 import com.microsoft.azure.oidc.configuration.Configuration;
 import com.microsoft.azure.oidc.configuration.ConfigurationCache;
 import com.microsoft.azure.oidc.configuration.impl.SimpleConfigurationCache;
@@ -82,6 +85,8 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 
 	private final ConfigurationCache configurationCache = SimpleConfigurationCache.getInstance();
 
+	private final ConcurrentCacheService concurrentCacheService = SimpleConcurrentCacheService.getInstance();
+
 	private final StateFactory stateFactory = SimpleStateFactory.getInstance();
 
 	private final AuthenticationConfigurationService authenticationConfigurationService = SimpleAuthenticationConfigurationService
@@ -96,12 +101,46 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 			doExcludedAction(chain, httpRequest, httpResponse, token);
 			return;
 		}
+		if (isService(httpRequest)) {
+			doNotAuthenticatedAction(httpResponse);
+			return;
+		}
 		doAuthenticateAction(httpRequest, httpResponse, token, isError);
+	}
+
+	private Boolean isService(final HttpServletRequest httpRequest) {
+		String uriString = null;
+		final Boolean isRootContext = "".equals(httpRequest.getContextPath());
+		if (isRootContext) {
+			uriString = httpRequest.getRequestURI();
+		} else {
+			final int length = httpRequest.getRequestURI().indexOf('/', 1);
+			uriString = httpRequest.getRequestURI().substring(length);
+		}
+		for (final Pattern pattern : authenticationConfigurationService.get().getServiceRegexPatternList()) {
+			final Matcher matcher = pattern.matcher(uriString);
+			final Boolean isMatchFound = matcher.matches();
+			if (isMatchFound) {
+				return Boolean.TRUE;
+			}
+		}
+		return Boolean.FALSE;
+	}
+
+	private void doNotAuthenticatedAction(final HttpServletResponse httpServletResponse) throws IOException {
+		httpServletResponse.setHeader("WWW-Authenticate", "Bearer realm=\"Application\"");
+		httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Not Authenticated");
 	}
 
 	@Override
 	public void doAuthenticateAction(final HttpServletRequest httpRequest, final HttpServletResponse httpResponse,
 			final Token token, final Boolean isError) throws IOException {
+		final ConcurrentCache<String, Boolean> cache = concurrentCacheService.getCache(Boolean.class, "roleCache");
+		if (cache != null && token != null) {
+			final String prefix = token.getUserID().getValue().concat(":");
+			final String prefixMax = prefix + Character.MAX_VALUE;
+			cache.removeWithPrefix(prefix, prefixMax);
+		}
 		httpResponse.sendRedirect(getAuthenticationEndPoint(httpRequest, token, isError));
 	}
 
@@ -149,6 +188,11 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 		final String tokenString = httpRequest.getParameter(tokenName);
 		if (tokenString != null) {
 			return addCookie(httpRequest, httpResponse, tokenName, tokenString);
+		}
+
+		final String header = getBearer(httpRequest);
+		if (header != null) {
+			return header;
 		}
 
 		final Cookie cookieToken = getCookie(httpRequest, tokenName);
@@ -223,7 +267,7 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 		if (isRootContext) {
 			uriString = httpRequest.getRequestURI();
 		} else {
-			final int length = httpRequest.getRequestURI().length();
+			final int length = httpRequest.getRequestURI().indexOf('/', 1);
 			uriString = httpRequest.getRequestURI().substring(length);
 		}
 		for (final Pattern pattern : authenticationConfigurationService.get().getExclusionRegexPatternList()) {
@@ -328,16 +372,33 @@ public final class SimpleAuthenticationHelper implements AuthenticationHelper {
 			final String stateString = mapper.writeValueAsString(state);
 			final String urlString = String.format(
 					"%s%sclient_Id=%s&state=%s&nonce=defaultNonce&redirect_uri=%s&scope=openid%%20offline_access&response_type=code+id_token&prompt=%s&response_mode=form_post",
-					configuration.getAuthenticationEndPoint(), 
+					configuration.getAuthenticationEndPoint(),
 					configuration.getAuthenticationEndPoint().getName().contains("?") ? "&" : "?",
-					applicationSettings.getApplicationId(),
-					new String(encoder.encode(stateString.getBytes()), "UTF-8"),
+					applicationSettings.getApplicationId(), new String(encoder.encode(stateString.getBytes()), "UTF-8"),
 					URLEncoder.encode(applicationSettings.getRedirectURL().getValue(), "UTF-8"),
 					token == null ? "login" : "none");
 			return urlString;
 		} catch (IOException e) {
 			throw new GeneralException("IO Exception", e);
 		}
+	}
+
+	private String getBearer(final HttpServletRequest httpRequest) {
+		if (httpRequest == null) {
+			throw new PreconditionException("Required parameter is null");
+		}
+		final String header = httpRequest.getHeader("Authorization");
+		if (header != null) {
+			final String[] parts = header.split(" ");
+			if (parts.length != 2) {
+				return null;
+			}
+			if (!parts[0].equals("Bearer")) {
+				return null;
+			}
+			return parts[1];
+		}
+		return null;
 	}
 
 	private Cookie getCookie(final HttpServletRequest httpRequest, final String cookieName) {

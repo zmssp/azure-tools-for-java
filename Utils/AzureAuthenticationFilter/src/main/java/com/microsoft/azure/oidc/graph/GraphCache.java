@@ -25,4 +25,6 @@ public interface GraphCache {
 
 	Boolean isUserInRole(String userID, String role);
 
+	void clearIsUserInRole(String userID, String role);
+
 }
