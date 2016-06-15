@@ -4,6 +4,8 @@ This is a proof of concept to demonstrate in a JavaEE environment:
 * Use of the Spring Redis Cache Session Manager Filter
 * Use of Azure SQL Database
 
+Please note that as it is targeted at JavaEE you will need a full JavaEE container and not just a Servlet container.  For example: Wildfly, Tomee, etc.
+
 Configuration of the Azure Authentication Filter is picked up from system environment variables:
 * **AAD_OIDC_POLICY** (The policy to use in Open ID Connect - Typically this is a "sign-up or sign-in" type policy)
 * **AAD_REDIRECT_URL** (The URL to redirect to after obtaining a token)
