@@ -21,18 +21,12 @@
  */
 package com.microsoft.tooling.msservices.helpers;
 
+import java.util.List;
+
 import com.google.common.util.concurrent.ListenableFuture;
 import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
 import com.microsoft.tooling.msservices.helpers.tasks.CancellableTask;
 import com.microsoft.tooling.msservices.helpers.tasks.CancellableTask.CancellableTaskHandle;
-import com.microsoft.tooling.msservices.model.storage.*;
-import com.microsoftopentechnologies.auth.browser.BrowserLauncher;
-import org.apache.commons.lang3.tuple.Pair;
-
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.util.List;
 
 public interface IDEHelper {
     class ProjectDescriptor {
@@ -79,17 +73,10 @@ public interface IDEHelper {
         }
     }
 
-    void openFile(@NotNull File file, @NotNull Object node);
-
-    void saveFile(@NotNull File file, @NotNull ByteArrayOutputStream buff, @NotNull Object node);
-
-    void replaceInFile(@NotNull Object module, @NotNull Pair<String, String>... replace);
-
-    void copyJarFiles2Module(@NotNull Object moduleObject, @NotNull File zipFile, @NotNull String zipPath)
-            throws IOException;
-
-    boolean isFileEditing(@NotNull Object projectObject, @NotNull File file);
-
+    com.microsoft.auth.IWebUi getWebUi();
+    
+    String getProjectSettingsPath();
+    
     void closeFile(@NotNull Object projectObject, @NotNull Object openedFile);
 
     void invokeLater(@NotNull Runnable runnable);
@@ -112,16 +99,26 @@ public interface IDEHelper {
     String getProperty(@NotNull String name);
 
     @NotNull
-    String getProperty(@NotNull String name, @NotNull String defaultValue);
+    String getProperty(@NotNull String name, Object projectObject);
+
+    @NotNull
+    String getPropertyWithDefault(@NotNull String name, @NotNull String defaultValue);
 
     void setProperty(@NotNull String name, @NotNull String value);
+
+    void setProperty(@NotNull String name, @NotNull String value, Object projectObject);
 
     void unsetProperty(@NotNull String name);
 
     boolean isPropertySet(@NotNull String name);
 
+    void unsetProperty(@NotNull String name, Object projectObject);
+
     @Nullable
     String[] getProperties(@NotNull String name);
+
+    @Nullable
+    String[] getProperties(@NotNull String name, Object projectObject);
 
     void setProperties(@NotNull String name, @NotNull String[] value);
 
@@ -133,5 +130,23 @@ public interface IDEHelper {
     ListenableFuture<String> buildArtifact(@NotNull ProjectDescriptor projectDescriptor,
                                            @NotNull ArtifactDescriptor artifactDescriptor);
 
-    BrowserLauncher getBrowserLauncher();
+    @NotNull
+    Object getCurrentProject();
+
+    void setApplicationProperty(@NotNull String name, @NotNull String value);
+
+    void unsetApplicationProperty(@NotNull String name);
+
+    @Nullable
+    String getApplicationProperty(@NotNull String name);
+
+    void setApplicationProperties(@NotNull String name, @NotNull String[] value);
+
+    void unsetApplicatonProperties(@NotNull String name);
+
+    @Nullable
+    String[] getApplicationProperties(@NotNull String name);
+
+    boolean isApplicationPropertySet(@NotNull String name);
+    
 }

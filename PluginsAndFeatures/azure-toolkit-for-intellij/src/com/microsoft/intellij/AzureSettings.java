@@ -50,11 +50,14 @@ import static com.microsoft.intellij.ui.messages.AzureBundle.message;
         }
 )
 public class AzureSettings implements PersistentStateComponent<AzureSettings.State> {
+    private static final String PREFERENCE_DELIMITER = ";";
 
     private State myState = new State();
 
     private boolean subscriptionLoaded;
     private boolean webAppLoaded;
+    private boolean appInsightsLoaded;
+    Map<String, Boolean> websiteDebugPrep = new HashMap<String, Boolean>();
 
     public static AzureSettings getSafeInstance(Project project) {
         AzureSettings settings = ServiceManager.getService(project, AzureSettings.class);
@@ -140,7 +143,7 @@ public class AzureSettings implements PersistentStateComponent<AzureSettings.Sta
         return map;
     }
 
-    public void loadPublishDatas(LoadingAccoutListener listener) {
+    public void loadPublishDatas(LoadingAccoutListener listener, Project project) {
         try {
             if (myState.publishProfile != null) {
                 byte[] data = Base64.decode(myState.publishProfile.getBytes());
@@ -151,7 +154,7 @@ public class AzureSettings implements PersistentStateComponent<AzureSettings.Sta
                     listener.setNumberOfAccounts(publishDatas.length);
                     for (PublishData pd : publishDatas) {
                         try {
-                            WizardCacheManager.cachePublishData(null, pd, listener);
+                            WizardCacheManager.cachePublishData(null, pd, listener, project);
                         } catch (RestAPIException e) {
                             log(message("error"), e);
                         }
@@ -292,12 +295,48 @@ public class AzureSettings implements PersistentStateComponent<AzureSettings.Sta
         this.webAppLoaded = webAppLoaded;
     }
 
-    public String[] getProperties(String name) {
-        return new String[0];
+    public boolean isAppInsightsLoaded() {
+        return appInsightsLoaded;
     }
 
-    public void setProperties(String name, String[] value) {
+    public void setAppInsightsLoaded(boolean appInsightsLoaded) {
+        this.appInsightsLoaded = appInsightsLoaded;
+    }
 
+    public Map<String, Boolean> getWebsiteDebugPrep() {
+        return websiteDebugPrep;
+    }
+
+    public void setWebsiteDebugPrep(Map<String, Boolean> websiteDebugPrep) {
+        this.websiteDebugPrep = websiteDebugPrep;
+    }
+
+    public String[] getProperties(String name) {
+        String properties = getProperty(name);
+        return properties == null ? new String[0] : convertFromProperties(properties);
+    }
+
+    public void setProperties(String name, String[] values) {
+        setProperty(name, convertToProperties(values));
+    }
+
+    private static String convertToProperties(String[] elements) {
+        StringBuilder buffer = new StringBuilder();
+        for (String element : elements) {
+            buffer.append(element);
+            buffer.append(PREFERENCE_DELIMITER);
+        }
+        return buffer.toString();
+    }
+
+    private static String[] convertFromProperties(String propertiesValue) {
+        StringTokenizer tokenizer = new StringTokenizer(propertiesValue, PREFERENCE_DELIMITER);
+        int tokenCount = tokenizer.countTokens();
+        String[] elements = new String[tokenCount];
+        for (int i = 0; i < tokenCount; i++) {
+            elements[i] = tokenizer.nextToken();
+        }
+        return elements;
     }
 
     public static class State {

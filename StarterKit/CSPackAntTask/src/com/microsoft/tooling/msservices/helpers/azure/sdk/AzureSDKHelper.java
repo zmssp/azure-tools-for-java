@@ -41,13 +41,15 @@ import javax.security.cert.X509Certificate;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathExpressionException;
 
-import com.microsoft.azure.management.websites.models.*;
 import org.xml.sax.SAXException;
 
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.microsoft.applicationinsights.management.rest.ApplicationInsightsManagementClient;
+import com.microsoft.applicationinsights.management.rest.client.RestOperationException;
+import com.microsoft.applicationinsights.management.rest.model.Resource;
 import com.microsoft.azure.management.resources.ResourceManagementClient;
 import com.microsoft.azure.management.resources.ResourceManagementService;
 import com.microsoft.azure.management.resources.models.ResourceGroup;
@@ -57,6 +59,23 @@ import com.microsoft.azure.management.websites.WebHostingPlanOperations;
 import com.microsoft.azure.management.websites.WebSiteManagementClient;
 import com.microsoft.azure.management.websites.WebSiteManagementService;
 import com.microsoft.azure.management.websites.WebSiteOperations;
+import com.microsoft.azure.management.websites.models.ConnectionStringInfo;
+import com.microsoft.azure.management.websites.models.WebHostingPlan;
+import com.microsoft.azure.management.websites.models.WebHostingPlanCreateOrUpdateParameters;
+import com.microsoft.azure.management.websites.models.WebHostingPlanListResponse;
+import com.microsoft.azure.management.websites.models.WebHostingPlanProperties;
+import com.microsoft.azure.management.websites.models.WebSiteBase;
+import com.microsoft.azure.management.websites.models.WebSiteBaseProperties;
+import com.microsoft.azure.management.websites.models.WebSiteCreateOrUpdateParameters;
+import com.microsoft.azure.management.websites.models.WebSiteDeleteParameters;
+import com.microsoft.azure.management.websites.models.WebSiteGetConfigurationResult;
+import com.microsoft.azure.management.websites.models.WebSiteGetParameters;
+import com.microsoft.azure.management.websites.models.WebSiteGetPublishProfileResponse;
+import com.microsoft.azure.management.websites.models.WebSiteListParameters;
+import com.microsoft.azure.management.websites.models.WebSiteListResponse;
+import com.microsoft.azure.management.websites.models.WebSiteUpdateConfigurationDetails;
+import com.microsoft.azure.management.websites.models.WebSiteUpdateConfigurationParameters;
+import com.microsoft.azure.management.websites.models.WebSiteState;
 import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.blob.CloudBlobClient;
 import com.microsoft.azure.storage.blob.CloudBlobContainer;
@@ -847,7 +866,7 @@ public class AzureSDKHelper {
     }
 
     @NotNull
-    public static SDKRequestCallback<Void, StorageManagementClient> deleteStorageAccount(@NotNull final StorageAccount storageAccount) {
+    public static SDKRequestCallback<Void, StorageManagementClient> deleteStorageAccount(@NotNull final ClientStorageAccount storageAccount) {
         return new SDKRequestCallback<Void, StorageManagementClient>() {
             @NotNull
             @Override
@@ -908,6 +927,47 @@ public class AzureSDKHelper {
                 return wsList;
             }
         };
+    }
+
+    @NotNull
+    public static SDKRequestCallback<List<Resource>, ApplicationInsightsManagementClient> getApplicationInsightsResources(
+    		@NotNull final String subscriptionId) {
+    	return new SDKRequestCallback<List<Resource>, ApplicationInsightsManagementClient>() {
+    		@NotNull
+    		@Override
+    		public List<Resource> execute(@NotNull ApplicationInsightsManagementClient client)
+    				throws Throwable {
+    			return client.getResources(subscriptionId);
+    		}
+    	};
+    }
+
+    @NotNull
+    public static SDKRequestCallback<List<String>, ApplicationInsightsManagementClient> getLocationsForApplicationInsights() {
+    	return new SDKRequestCallback<List<String>, ApplicationInsightsManagementClient>() {
+    		@NotNull
+    		@Override
+    		public List<String> execute(@NotNull ApplicationInsightsManagementClient client)
+    				throws Throwable {
+    			return client.getAvailableGeoLocations();
+    		}
+    	};
+    }
+
+    @NotNull
+    public static SDKRequestCallback<Resource, ApplicationInsightsManagementClient> createApplicationInsightsResource(
+    		@NotNull final String subscriptionId,
+    		@NotNull final String resourceGroupName,
+    		@NotNull final String resourceName,
+    		@NotNull final String location) {
+    	return new SDKRequestCallback<Resource, ApplicationInsightsManagementClient>() {
+    		@NotNull
+    		@Override
+    		public Resource execute(@NotNull ApplicationInsightsManagementClient client)
+    				throws Throwable {
+    			return client.createResource(subscriptionId, resourceGroupName, resourceName, location);
+    		}
+    	};
     }
 
     @NotNull
@@ -1020,32 +1080,36 @@ public class AzureSDKHelper {
 
     @NotNull
     public static SDKRequestCallback<Void, WebSiteManagementClient> stopWebSite(@NotNull final String webSpaceName,
-                                                                                   @NotNull final String webSiteName) {
-        return new SDKRequestCallback<Void, WebSiteManagementClient>() {
-            @NotNull
-            @Override
-            public Void execute(@NotNull WebSiteManagementClient client)
-                    throws Throwable {
-                getWebSiteOperations(client).stop(webSpaceName, webSiteName, null);
-
-                return null;
-            }
-        };
+    		@NotNull final String webSiteName) {
+    	return new SDKRequestCallback<Void, WebSiteManagementClient>() {
+    		@NotNull
+    		@Override
+    		public Void execute(@NotNull WebSiteManagementClient client)
+    				throws Throwable {
+    			com.microsoft.azure.management.websites.models.WebSite website = getWebSite(client, webSpaceName, webSiteName);
+    			if (website.getProperties().getState().equals(WebSiteState.Running)) {
+    				getWebSiteOperations(client).stop(webSpaceName, webSiteName, null);
+    			}
+    			return null;
+    		}
+    	};
     }
 
     @NotNull
     public static SDKRequestCallback<Void, WebSiteManagementClient> startWebSite(@NotNull final String webSpaceName,
-                                                                                @NotNull final String webSiteName) {
-        return new SDKRequestCallback<Void, WebSiteManagementClient>() {
-            @NotNull
-            @Override
-            public Void execute(@NotNull WebSiteManagementClient client)
-                    throws Throwable {
-                getWebSiteOperations(client).start(webSpaceName, webSiteName, null);
-
-                return null;
-            }
-        };
+    		@NotNull final String webSiteName) {
+    	return new SDKRequestCallback<Void, WebSiteManagementClient>() {
+    		@NotNull
+    		@Override
+    		public Void execute(@NotNull WebSiteManagementClient client)
+    				throws Throwable {
+    			com.microsoft.azure.management.websites.models.WebSite website = getWebSite(client, webSpaceName, webSiteName);
+    			if (website.getProperties().getState().equals(WebSiteState.Stopped)) {
+    				getWebSiteOperations(client).start(webSpaceName, webSiteName, null);
+    			}
+    			return null;
+    		}
+    	};
     }
 
     @NotNull
@@ -1101,6 +1165,17 @@ public class AzureSDKHelper {
                 return loadWebSite(subscriptionId, webSpaceName, webSite);
             }
         };
+    }
+
+    @NotNull
+    private static com.microsoft.azure.management.websites.models.WebSite getWebSite(@NotNull WebSiteManagementClient client,
+    		@NotNull String webSpaceName, @NotNull String webSiteName) throws Exception {
+    	WebSiteGetParameters webSiteGetParameters = new WebSiteGetParameters();
+    	webSiteGetParameters.getPropertiesToInclude().add("Name");
+    	webSiteGetParameters.getPropertiesToInclude().add("WebSpace");
+    	webSiteGetParameters.getPropertiesToInclude().add("Status");
+    	webSiteGetParameters.getPropertiesToInclude().add("Url");
+    	return getWebSiteOperations(client).get(webSpaceName, webSiteName, null, webSiteGetParameters).getWebSite();
     }
 
     @NotNull
@@ -1372,13 +1447,21 @@ public class AzureSDKHelper {
         AuthTokenRequestFilter requestFilter = new AuthTokenRequestFilter(accessToken);
         return client.withRequestFilterFirst(requestFilter);
     }
+    
+    @NotNull
+    public static ApplicationInsightsManagementClient getApplicationManagementClient(@NotNull String tenantId, @NotNull String accessToken)
+    		throws RestOperationException, IOException {
+    	String userAgent = "Mozilla/5.0 (Windows NT 6.2; WOW64; rv:19.0) Gecko/20100101 Firefox/19.0";
+    	ApplicationInsightsManagementClient client = new ApplicationInsightsManagementClient(tenantId, accessToken, userAgent);
+    	return client;
+    }
 
     @NotNull
     public static SubscriptionGetResponse getSubscription(@NotNull Configuration config) throws AzureCmdException {
     	ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
     	try {
     		// change classloader only for intellij plugin - for some reason Eclipse does not need it
-    		if (DefaultLoader.getPluginComponent() != null && DefaultLoader.PLUGIN_ID.equals(DefaultLoader.getPluginComponent().getPluginId())) {
+    		if (DefaultLoader.getPluginComponent() != null && isIntelliJPlugin()) {
     			// Change context classloader to class context loader
     			Thread.currentThread().setContextClassLoader(AzureManagerImpl.class.getClassLoader());
     		}
@@ -2637,7 +2720,7 @@ public class AzureSDKHelper {
     		throws IOException, URISyntaxException {
     	ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
     	try {
-    		if (DefaultLoader.PLUGIN_ID.equals(DefaultLoader.getPluginComponent().getPluginId())) {
+    		if (isIntelliJPlugin()) {
     			// Change context classloader to class context loader
     			Thread.currentThread().setContextClassLoader(AzureManagerImpl.class.getClassLoader());
     		}
@@ -2663,7 +2746,7 @@ public class AzureSDKHelper {
         String azureServiceManagementUri = DefaultLoader.getPluginComponent().getSettings().getAzureServiceManagementUri();
 
         ClassLoader old = Thread.currentThread().getContextClassLoader();
-        if (DefaultLoader.PLUGIN_ID.equals(DefaultLoader.getPluginComponent().getPluginId())) {
+        if (isIntelliJPlugin()) {
             Thread.currentThread().setContextClassLoader(AzureManagerImpl.class.getClassLoader());
         }
 
@@ -2775,7 +2858,7 @@ public class AzureSDKHelper {
     	ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
     	try {
     		// change classloader only for intellij plugin - for some reason Eclipse does not need it
-    		if (DefaultLoader.getPluginComponent() != null && DefaultLoader.PLUGIN_ID.equals(DefaultLoader.getPluginComponent().getPluginId())) {
+    		if (DefaultLoader.getPluginComponent() != null && isIntelliJPlugin()) {
     			// Change context classloader to class context loader
     			Thread.currentThread().setContextClassLoader(AzureManagerImpl.class.getClassLoader());
     		}
@@ -2794,7 +2877,7 @@ public class AzureSDKHelper {
         ClassLoader contextLoader = Thread.currentThread().getContextClassLoader();
         try {
             // change classloader only for intellij plugin - for some reason Eclipse does not need it
-            if (DefaultLoader.getPluginComponent() != null && DefaultLoader.PLUGIN_ID.equals(DefaultLoader.getPluginComponent().getPluginId())) {
+            if (DefaultLoader.getPluginComponent() != null && isIntelliJPlugin()) {
                 // Change context classloader to class context loader
                 Thread.currentThread().setContextClassLoader(AzureManagerImpl.class.getClassLoader());
             }
@@ -2804,5 +2887,34 @@ public class AzureSDKHelper {
             // Call Azure API and reset back the context loader
             Thread.currentThread().setContextClassLoader(contextLoader);
         }
+    }
+    
+    @NotNull
+    public static SDKRequestCallback<Void, WebSiteManagementClient> enableWebSockets(
+    		@NotNull final String webSpaceName,
+    		@NotNull final String webSiteName,
+    		@NotNull final String location,
+    		@NotNull final boolean enableSocket) {
+    	return new SDKRequestCallback<Void, WebSiteManagementClient>() {
+    		@NotNull
+    		@Override
+    		public Void execute(@NotNull WebSiteManagementClient client)
+    				throws Throwable {
+    			com.microsoft.azure.management.websites.models.WebSiteConfiguration webSiteConfiguration =
+    					getWebSiteConfiguration(client, webSpaceName, webSiteName);
+    			if (!webSiteConfiguration.isWebSocketsEnabled()) {
+    				WebSiteUpdateConfigurationDetails details = new WebSiteUpdateConfigurationDetails();
+    				details.setWebSocketsEnabled(enableSocket);
+    				WebSiteUpdateConfigurationParameters wsucp = new WebSiteUpdateConfigurationParameters(details, location);
+    				OperationResponse or = getWebSiteOperations(client).updateConfiguration(webSpaceName, webSiteName, null, wsucp);
+    			}
+    			return null;
+    		}
+    	};
+    }
+
+    private static boolean isIntelliJPlugin() {
+        String pluginId = DefaultLoader.getPluginComponent().getPluginId();
+        return pluginId != null && pluginId.contains("intellij");
     }
 }

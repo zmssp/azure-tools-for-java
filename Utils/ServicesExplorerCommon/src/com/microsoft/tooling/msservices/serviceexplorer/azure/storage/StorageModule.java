@@ -21,9 +21,11 @@
  */
 package com.microsoft.tooling.msservices.serviceexplorer.azure.storage;
 
+import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.helpers.ExternalStorageHelper;
 import com.microsoft.tooling.msservices.helpers.NotNull;
 import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
+import com.microsoft.tooling.msservices.helpers.azure.AzureManager;
 import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
 import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManagerImpl;
 import com.microsoft.tooling.msservices.model.Subscription;
@@ -33,7 +35,10 @@ import com.microsoft.tooling.msservices.serviceexplorer.EventHelper.EventStateHa
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureRefreshableNode;
 import com.microsoft.windowsazure.management.storage.models.StorageAccountTypes;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class StorageModule extends AzureRefreshableNode {
@@ -50,31 +55,37 @@ public class StorageModule extends AzureRefreshableNode {
             throws AzureCmdException {
         removeAllChildNodes();
 
+        AzureManager azureManager = AzureManagerImpl.getManager(getProject());
         // load all Storage Accounts
-        List<Subscription> subscriptionList = AzureManagerImpl.getManager().getSubscriptionList();
-
+        List<Subscription> subscriptionList = azureManager.getSubscriptionList();
+        List<Pair<String, String>> failedSubscriptions = new ArrayList<>();
         for (Subscription subscription : subscriptionList) {
-            List<StorageAccount> storageAccounts = AzureManagerImpl.getManager().getStorageAccounts(subscription.getId(), true);
+            try {
+                List<StorageAccount> storageAccounts = azureManager.getStorageAccounts(subscription.getId(), true);
 
-            if (eventState.isEventTriggered()) {
-                return;
-            }
-
-            for (StorageAccount sm : storageAccounts) {
-                String type = sm.getType();
-
-                if (type.equals(StorageAccountTypes.STANDARD_GRS)
-                        || type.equals(StorageAccountTypes.STANDARD_LRS)
-                        || type.equals(StorageAccountTypes.STANDARD_RAGRS)
-                        || type.equals(StorageAccountTypes.STANDARD_ZRS)) {
-
-                    addChildNode(new StorageNode(this, sm));
+                if (eventState.isEventTriggered()) {
+                    return;
                 }
+
+                for (StorageAccount sm : storageAccounts) {
+                    String type = sm.getType();
+
+                    if (type.equals(StorageAccountTypes.STANDARD_GRS)
+                            || type.equals(StorageAccountTypes.STANDARD_LRS)
+                            || type.equals(StorageAccountTypes.STANDARD_RAGRS)
+                            || type.equals(StorageAccountTypes.STANDARD_ZRS)) {
+
+                        addChildNode(new StorageNode(this, sm, false));
+                    }
+                }
+            } catch (Exception ex) {
+                failedSubscriptions.add(new ImmutablePair<>(subscription.getName(), ex.getMessage()));
+                continue;
             }
         }
 
         // load External Accounts
-        for (ClientStorageAccount clientStorageAccount : ExternalStorageHelper.getList()) {
+        for (ClientStorageAccount clientStorageAccount : ExternalStorageHelper.getList(getProject())) {
             ClientStorageAccount storageAccount = StorageClientSDKManagerImpl.getManager().getStorageAccount(clientStorageAccount.getConnectionString());
 
             if (eventState.isEventTriggered()) {
@@ -82,6 +93,13 @@ public class StorageModule extends AzureRefreshableNode {
             }
 
             addChildNode(new ExternalStorageNode(this, storageAccount));
+        }
+        if (!failedSubscriptions.isEmpty()) {
+            StringBuilder errorMessage = new StringBuilder("An error occurred when trying to load Storage Accounts for the subscriptions:\n\n");
+            for (Pair error : failedSubscriptions) {
+                errorMessage.append(error.getKey()).append(": ").append(error.getValue()).append("\n");
+            }
+            DefaultLoader.getUIHelper().logError("An error occurred when trying to load Storage Accounts\n\n" + errorMessage.toString(), null);
         }
     }
 }

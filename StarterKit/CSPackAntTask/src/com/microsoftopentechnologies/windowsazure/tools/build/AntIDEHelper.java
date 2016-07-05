@@ -20,12 +20,13 @@
 package com.microsoftopentechnologies.windowsazure.tools.build;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.microsoft.auth.IWebUi;
 import com.microsoft.tooling.msservices.helpers.IDEHelper;
 import com.microsoft.tooling.msservices.helpers.NotNull;
 import com.microsoft.tooling.msservices.helpers.Nullable;
 import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
+import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
 import com.microsoft.tooling.msservices.helpers.tasks.CancellableTask;
-import com.microsoftopentechnologies.auth.browser.BrowserLauncher;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.ByteArrayOutputStream;
@@ -37,27 +38,6 @@ import java.util.List;
  * This class is needed because AADManagerImpl and AzureManagerImpl heavily rely on IDEHelper
  */
 public class AntIDEHelper implements IDEHelper {
-    @Override
-    public void openFile(@NotNull File file, @NotNull Object node) {
-    }
-
-    @Override
-    public void saveFile(@NotNull File file, @NotNull ByteArrayOutputStream buff, @NotNull Object node) {
-    }
-
-    @Override
-    public void replaceInFile(@NotNull Object module, @NotNull Pair<String, String>... replace) {
-    }
-
-    @Override
-    public void copyJarFiles2Module(@NotNull Object moduleObject, @NotNull File zipFile, @NotNull String zipPath) throws IOException {
-    }
-
-    @Override
-    public boolean isFileEditing(@NotNull Object projectObject, @NotNull File file) {
-        return false;
-    }
-
     @Override
     public void closeFile(@NotNull Object projectObject, @NotNull Object openedFile) {
     }
@@ -83,18 +63,53 @@ public class AntIDEHelper implements IDEHelper {
         return null;
     }
 
+    public void setApplicationProperty(@NotNull String name, @NotNull String value) {
+    }
+
+    public void unsetApplicationProperty(@NotNull String name) {
+    }
+
+    @Nullable
+    public String getApplicationProperty(@NotNull String name) {
+        return null;
+    }
+
+    public void setApplicationProperties(@NotNull String name, @NotNull String[] value) {
+    }
+
+    public void unsetApplicatonProperties(@NotNull String name) {
+    }
+
+    @Nullable
+    public String[] getApplicationProperties(@NotNull String name) {
+        return new String[0];
+    }
+
+    public boolean isApplicationPropertySet(@NotNull String name) {
+        return false;
+    }
+
     @Override
     public String getProperty(@NotNull String name) {
         return null;
     }
 
     @Override
-    public String getProperty(@NotNull String name, @NotNull String defaultValue) {
+    public String getProperty(@NotNull String name, Object projectObject) {
+        return null;
+    }
+
+    @Override
+    public String getPropertyWithDefault(@NotNull String name, @NotNull String defaultValue) {
         return null;
     }
 
     @Override
     public void setProperty(@NotNull String name, @NotNull String value) {
+    }
+
+    @Override
+    public void setProperty(@NotNull String name, @NotNull String value, Object projectObject) {
     }
 
     @Override
@@ -107,7 +122,17 @@ public class AntIDEHelper implements IDEHelper {
     }
 
     @Override
+    public void unsetProperty(@NotNull String name, Object projectObject) {
+
+    }
+
+    @Override
     public String[] getProperties(@NotNull String name) {
+        return new String[0];
+    }
+
+    @Override
+    public String[] getProperties(@NotNull String name, Object projectObject) {
         return new String[0];
     }
 
@@ -125,8 +150,20 @@ public class AntIDEHelper implements IDEHelper {
         return null;
     }
 
+    @NotNull
     @Override
-    public BrowserLauncher getBrowserLauncher() {
-        return null;
+    public Object getCurrentProject() {
+        return AzureManagerImpl.DEFAULT_PROJECT;
     }
+
+	@Override
+	public IWebUi getWebUi() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	@Override
+	public String getProjectSettingsPath() {
+		return null;
+	}
 }

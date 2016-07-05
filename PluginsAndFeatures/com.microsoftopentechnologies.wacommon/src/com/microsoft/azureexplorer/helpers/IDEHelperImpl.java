@@ -19,35 +19,27 @@
  */
 package com.microsoft.azureexplorer.helpers;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import com.microsoft.tooling.msservices.components.DefaultLoader;
-import com.microsoft.tooling.msservices.helpers.IDEHelper;
-import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
-import com.microsoft.tooling.msservices.helpers.tasks.CancellableTask;
-import com.microsoft.tooling.msservices.helpers.tasks.CancellableTask.CancellableTaskHandle;
-import com.microsoft.tooling.msservices.model.storage.*;
-import com.microsoft.tooling.msservices.serviceexplorer.Node;
-import com.microsoftopentechnologies.wacommon.adauth.BrowserLauncherEclipse;
-import com.microsoftopentechnologies.auth.browser.BrowserLauncher;
+import java.io.File;
+import java.util.List;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.swt.widgets.Display;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.util.List;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.microsoft.tooling.msservices.helpers.IDEHelper;
+import com.microsoft.tooling.msservices.helpers.NotNull;
+import com.microsoft.tooling.msservices.helpers.Nullable;
+import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
+import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
+import com.microsoft.tooling.msservices.helpers.tasks.CancellableTask;
+import com.microsoft.tooling.msservices.helpers.tasks.CancellableTask.CancellableTaskHandle;
+import com.microsoftopentechnologies.wacommon.utils.PluginUtil;
+import com.microsoftopentechnologies.wacommon.utils.Messages;
 
 public class IDEHelperImpl implements IDEHelper {
-
-    @Override
-    public void openFile(File file, Object node) {
-
-    }
 
     @Override
     public void runInBackground(Object project, String name, boolean canBeCancelled, boolean isIndeterminate, final String indicatorText, final Runnable runnable) {
@@ -67,26 +59,6 @@ public class IDEHelperImpl implements IDEHelper {
             }
         };
         job.schedule();
-    }
-
-    @Override
-    public void saveFile(File file, ByteArrayOutputStream byteArrayOutputStream, Object node) {
-
-    }
-
-    @Override
-    public void replaceInFile(Object module, Pair<String, String>... replace) {
-
-    }
-
-    @Override
-    public void copyJarFiles2Module(Object moduleObject, File zipFile, String zipPath) throws IOException {
-
-    }
-
-    @Override
-    public boolean isFileEditing(Object projectObject, File file) {
-        return false;
     }
 
     @Override
@@ -125,20 +97,23 @@ public class IDEHelperImpl implements IDEHelper {
         job.schedule();
     }
 
-    public String getProperty(Object projectObject, String name) {
-        return null;
+    @Override
+    public String getProperty(String name, Object projectObject) {
+        return getProperty(name);
     }
 
     public String getProperty(Object projectObject, String name, String defaultValue) {
         return null;
     }
 
-    public void setProperty(Object projectObject, String name, String value) {
-
+    @Override
+    public void setProperty(String name, String value, Object projectObject) {
+        setProperty(name, value);
     }
 
-    public void unsetProperty(Object projectObject, String name) {
-
+    @Override
+    public void unsetProperty(String name, Object projectObject) {
+        unsetProperty(name);
     }
 
     public boolean isPropertySet(Object projectObject, String name) {
@@ -151,7 +126,7 @@ public class IDEHelperImpl implements IDEHelper {
     }
 
     @Override
-    public String getProperty(String name, String defaultValue) {
+    public String getPropertyWithDefault(String name, String defaultValue) {
         return PreferenceUtil.loadPreference(name, defaultValue);
     }
 
@@ -173,6 +148,11 @@ public class IDEHelperImpl implements IDEHelper {
     @Override
     public String[] getProperties(String name) {
         return PreferenceUtil.loadPreferences(name);
+    }
+
+    @Override
+    public String[] getProperties(String name, Object project) {
+        return getProperties(name);
     }
 
     @Override
@@ -204,7 +184,54 @@ public class IDEHelperImpl implements IDEHelper {
 		return null;
 	}
 
-    public BrowserLauncher getBrowserLauncher() {
-        return new BrowserLauncherEclipse(null);
+    public Object getCurrentProject() {
+        return AzureManagerImpl.DEFAULT_PROJECT;
     }
+
+    @Override
+    public void setApplicationProperty(@NotNull String name, @NotNull String value) {
+    	setProperty(name, value);
+    }
+
+    @Override
+    public void unsetApplicationProperty(@NotNull String name) {
+    	unsetProperty(name);
+    }
+
+    @Override
+    @Nullable
+    public String getApplicationProperty(@NotNull String name) {
+    	return getProperty(name);
+    }
+
+    @Override
+    public void setApplicationProperties(@NotNull String name, @NotNull String[] value) {
+    	setProperties(name, value);
+    }
+
+    @Override
+    public void unsetApplicatonProperties(@NotNull String name) {
+    	unsetProperty(name);
+    }
+
+    @Override
+    @Nullable
+    public String[] getApplicationProperties(@NotNull String name) {
+    	return getProperties(name);
+    }
+
+    @Override
+    public boolean isApplicationPropertySet(@NotNull String name) {
+    	return isPropertySet(name);
+    }
+    
+    @Override
+    public  com.microsoft.auth.IWebUi getWebUi() {
+    	return new com.microsoftopentechnologies.wacommon.adauth.SwtBrowserWIndow();
+    }
+
+	@Override
+	public String getProjectSettingsPath() {
+		return String.format("%s%s%s", PluginUtil.pluginFolder, File.separator, Messages.commonPluginID);
+	}
 }

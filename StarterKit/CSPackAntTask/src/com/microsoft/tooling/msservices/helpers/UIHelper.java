@@ -39,6 +39,8 @@ public interface UIHelper {
 
     boolean showConfirmation(@NotNull String message, @NotNull String title, @NotNull String[] options, String defaultOption);
 
+    void logError(String message, Throwable ex);
+
     File showFileChooser(String title);
 
     <T extends StorageServiceTreeItem> void openItem(Object projectObject, final ClientStorageAccount storageAccount, final T item, String itemType, String itemName, String iconName);
@@ -58,5 +60,5 @@ public interface UIHelper {
                                                             @NotNull ClientStorageAccount storageAccount,
                                                             @NotNull T item);
 
-    void saveWebAppPreferences(Map<WebSite, WebSiteConfiguration> map);
+    void saveWebAppPreferences(@NotNull Object projectObject, Map<WebSite, WebSiteConfiguration> map);
 }

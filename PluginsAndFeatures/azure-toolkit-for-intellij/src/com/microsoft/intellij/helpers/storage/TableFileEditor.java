@@ -80,7 +80,8 @@ public class TableFileEditor implements FileEditor {
     private boolean registeredSubscriptionsChanged;
     private final Object subscriptionsChangedSync = new Object();
 
-    public TableFileEditor() {
+    public TableFileEditor(final Project project) {
+        this.project = project;
         ActionListener queryActionListener = new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
@@ -412,10 +413,6 @@ public class TableFileEditor implements FileEditor {
         this.storageAccount = storageAccount;
     }
 
-    public void setProject(Project project) {
-        this.project = project;
-    }
-
     public void setTable(Table table) {
         this.table = table;
     }
@@ -514,7 +511,7 @@ public class TableFileEditor implements FileEditor {
             throws AzureCmdException {
         synchronized (subscriptionsChangedSync) {
             if (subscriptionsChanged == null) {
-                subscriptionsChanged = AzureManagerImpl.getManager().registerSubscriptionsChanged();
+                subscriptionsChanged = AzureManagerImpl.getManager(project).registerSubscriptionsChanged();
             }
 
             registeredSubscriptionsChanged = true;
@@ -548,7 +545,7 @@ public class TableFileEditor implements FileEditor {
             registeredSubscriptionsChanged = false;
 
             if (subscriptionsChanged != null) {
-                AzureManagerImpl.getManager().unregisterSubscriptionsChanged(subscriptionsChanged);
+                AzureManagerImpl.getManager(project).unregisterSubscriptionsChanged(subscriptionsChanged);
                 subscriptionsChanged = null;
             }
         }

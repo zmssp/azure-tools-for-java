@@ -69,9 +69,10 @@ public class UIHelperImpl implements UIHelper {
         Display.getDefault().asyncExec(new Runnable() {
             @Override
             public void run() {
-                PluginUtil.displayErrorDialog(null, title, message);
+                PluginUtil.displayErrorDialogAndLog(null, title, message, ex);
             }
         });
+        
     }
 
     @Override
@@ -91,6 +92,11 @@ public class UIHelperImpl implements UIHelper {
                 message);
 
         return choice;
+    }
+
+    @Override
+    public void logError(String message, Throwable ex) {
+        Activator.getDefault().log(message, ex);
     }
 
     @Override
@@ -215,7 +221,7 @@ public class UIHelperImpl implements UIHelper {
     }
 
 	@Override
-	public void saveWebAppPreferences(Map<WebSite, WebSiteConfiguration> map) {
+	public void saveWebAppPreferences(Object project, Map<WebSite, WebSiteConfiguration> map) {
 		PreferenceWebAppUtil.save(map);
 		PreferenceWebAppUtil.setLoaded(true);
 	}

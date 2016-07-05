@@ -75,7 +75,8 @@ public class QueueFileEditor implements FileEditor {
     private boolean registeredSubscriptionsChanged;
     private final Object subscriptionsChangedSync = new Object();
 
-    public QueueFileEditor() {
+    public QueueFileEditor(final Project project) {
+        this.project = project;
         queueTable.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         DefaultTableModel model = new DefaultTableModel() {
@@ -338,11 +339,6 @@ public class QueueFileEditor implements FileEditor {
         viewMessageForm.show();
     }
 
-    public void setProject(Project project) {
-        this.project = project;
-    }
-
-
     public void setStorageAccount(ClientStorageAccount storageAccount) {
         this.storageAccount = storageAccount;
     }
@@ -445,7 +441,7 @@ public class QueueFileEditor implements FileEditor {
             throws AzureCmdException {
         synchronized (subscriptionsChangedSync) {
             if (subscriptionsChanged == null) {
-                subscriptionsChanged = AzureManagerImpl.getManager().registerSubscriptionsChanged();
+                subscriptionsChanged = AzureManagerImpl.getManager(project).registerSubscriptionsChanged();
             }
 
             registeredSubscriptionsChanged = true;
@@ -479,7 +475,7 @@ public class QueueFileEditor implements FileEditor {
             registeredSubscriptionsChanged = false;
 
             if (subscriptionsChanged != null) {
-                AzureManagerImpl.getManager().unregisterSubscriptionsChanged(subscriptionsChanged);
+                AzureManagerImpl.getManager(project).unregisterSubscriptionsChanged(subscriptionsChanged);
                 subscriptionsChanged = null;
             }
         }

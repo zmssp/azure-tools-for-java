@@ -21,7 +21,9 @@
  */
 package com.microsoft.tooling.msservices.serviceexplorer.azure;
 
+import com.microsoft.azure.hdinsight.serverexplore.hdinsightnode.HDInsightRootModule;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
+import com.microsoft.tooling.msservices.helpers.NotNull;
 import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
 import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
 import com.microsoft.tooling.msservices.model.Subscription;
@@ -30,7 +32,6 @@ import com.microsoft.tooling.msservices.model.ws.WebSiteConfiguration;
 import com.microsoft.tooling.msservices.serviceexplorer.EventHelper.EventWaitHandle;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import com.microsoft.tooling.msservices.serviceexplorer.RefreshableNode;
-import com.microsoft.tooling.msservices.serviceexplorer.azure.mobileservice.MobileServiceModule;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.storage.StorageModule;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.vm.VMServiceModule;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.webapps.WebappsModule;
@@ -44,10 +45,11 @@ public class AzureServiceModule extends RefreshableNode {
     private static final String BASE_MODULE_NAME = "Azure";
 
     private Object project;
-    private MobileServiceModule mobileServiceModule ;
     private VMServiceModule vmServiceModule;
+//    private VMArmServiceModule vmArmServiceModule;
     private StorageModule storageServiceModule;
     private WebappsModule webappsModule;
+    private HDInsightRootModule hdInsightModule;
     private boolean storageModuleOnly;
     private EventWaitHandle subscriptionsChanged;
     private boolean registeredSubscriptionsChanged;
@@ -61,48 +63,45 @@ public class AzureServiceModule extends RefreshableNode {
         this.storageModuleOnly = storageModuleOnly;
         storageServiceModule = new StorageModule(this);
         webappsModule = new WebappsModule(this);
+        //hdInsightModule = new HDInsightRootModule(this);
         if (!storageModuleOnly) {
             vmServiceModule = new VMServiceModule(this);
-            mobileServiceModule = new MobileServiceModule(this);
         }
+//        vmArmServiceModule = new VMArmServiceModule(this);
     }
 
     public AzureServiceModule(Node parent, String iconPath, Object data) {
         super(AZURE_SERVICE_MODULE_ID, BASE_MODULE_NAME, parent, iconPath);
     }
 
+    public void setHdInsightModule(@NotNull HDInsightRootModule rootModule) {
+        this.hdInsightModule = rootModule;
+    }
+
     @Override
     public String getName() {
-        try {
-            List<Subscription> subscriptionList = AzureManagerImpl.getManager().getSubscriptionList();
+//        try {
+            List<Subscription> subscriptionList = AzureManagerImpl.getManager(getProject()).getSubscriptionList();
             if (subscriptionList.size() > 0) {
                 return String.format("%s (%s)", BASE_MODULE_NAME, subscriptionList.size() > 1
                         ? String.format("%s subscriptions", subscriptionList.size())
                         : subscriptionList.get(0).getName());
             }
-        } catch (AzureCmdException e) {
-        	String msg = "An error occurred while getting the subscription list." + "\n" + "(Message from Azure:" + e.getMessage() + ")";
-        	DefaultLoader.getUIHelper().showException(msg, e,
-        			"MS Services - Error Getting Subscriptions", false, true);
-        }
+//        } catch (AzureCmdException e) {
+//        	String msg = "An error occurred while getting the subscription list." + "\n" + "(Message from Azure:" + e.getMessage() + ")";
+//        	DefaultLoader.getUIHelper().showException(msg, e,
+//        			"MS Services - Error Getting Subscriptions", false, true);
+//        }
         return BASE_MODULE_NAME;
     }
 
     @Override
     protected void refreshItems() throws AzureCmdException {
-        // add the mobile service module; we check if the node has
+        // add the module; we check if the node has
         // already been added first because this method can be called
         // multiple times when the user clicks the "Refresh" context
         // menu item
         if (!storageModuleOnly) {
-            if (!mobileServiceModule.isLoading()) {
-                if (!isDirectChild(mobileServiceModule)) {
-                    addChildNode(mobileServiceModule);
-                }
-
-                mobileServiceModule.load();
-            }
-
             if (!vmServiceModule.isLoading()) {
                 if (!isDirectChild(vmServiceModule)) {
                     addChildNode(vmServiceModule);
@@ -111,6 +110,13 @@ public class AzureServiceModule extends RefreshableNode {
                 vmServiceModule.load();
             }
         }
+//
+//        if (!vmArmServiceModule.isLoading()) {
+//            if (!isDirectChild(vmArmServiceModule)) {
+//                addChildNode(vmArmServiceModule);
+//            }
+//            vmArmServiceModule.load();
+//        }
 
         if (!storageServiceModule.isLoading()) {
             if (!isDirectChild(storageServiceModule)) {
@@ -127,6 +133,18 @@ public class AzureServiceModule extends RefreshableNode {
 
             webappsModule.load();
         }
+//        if (!vmArmServiceModule.isLoading()) {
+//            if (!isDirectChild(vmArmServiceModule)) {
+//                addChildNode(vmArmServiceModule);
+//            }
+//            vmArmServiceModule.load();
+//        }
+        if (hdInsightModule != null && !hdInsightModule.isLoading()) {
+            if (!isDirectChild(hdInsightModule)) {
+                addChildNode(hdInsightModule);
+            }
+            hdInsightModule.load();
+        }
     }
 
     @Override
@@ -138,7 +156,7 @@ public class AzureServiceModule extends RefreshableNode {
             throws AzureCmdException {
         synchronized (subscriptionsChangedSync) {
             if (subscriptionsChanged == null) {
-                subscriptionsChanged = AzureManagerImpl.getManager().registerSubscriptionsChanged();
+                subscriptionsChanged = AzureManagerImpl.getManager(getProject()).registerSubscriptionsChanged();
             }
 
             registeredSubscriptionsChanged = true;
@@ -154,10 +172,11 @@ public class AzureServiceModule extends RefreshableNode {
                                     if (registeredSubscriptionsChanged) {
                                         removeAllChildNodes();
                                         if (!storageModuleOnly) {
-                                            mobileServiceModule = new MobileServiceModule(AzureServiceModule.this);
                                             vmServiceModule = new VMServiceModule(AzureServiceModule.this);
                                         }
+//                                        vmArmServiceModule = new VMArmServiceModule(AzureServiceModule.this);
                                         storageServiceModule = new StorageModule(AzureServiceModule.this);
+                                        hdInsightModule = hdInsightModule.getNewNode(AzureServiceModule.this);
 
                                         load();
                                     }
@@ -178,7 +197,7 @@ public class AzureServiceModule extends RefreshableNode {
             registeredSubscriptionsChanged = false;
 
             if (subscriptionsChanged != null) {
-                AzureManagerImpl.getManager().unregisterSubscriptionsChanged(subscriptionsChanged);
+                AzureManagerImpl.getManager(getProject()).unregisterSubscriptionsChanged(subscriptionsChanged);
                 subscriptionsChanged = null;
             }
         }

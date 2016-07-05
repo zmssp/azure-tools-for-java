@@ -95,7 +95,8 @@ public class BlobExplorerFileEditor implements FileEditor {
     private boolean registeredSubscriptionsChanged;
     private final Object subscriptionsChangedSync = new Object();
 
-    public BlobExplorerFileEditor() {
+    public BlobExplorerFileEditor(Project project) {
+        this.project = project;
         blobListTable.getSelectionModel().setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         DefaultTableModel model = new DefaultTableModel() {
@@ -873,15 +874,11 @@ public class BlobExplorerFileEditor implements FileEditor {
         this.blobContainer = blobContainer;
     }
 
-    public void setProject(Project project) {
-        this.project = project;
-    }
-
     private void registerSubscriptionsChanged()
             throws AzureCmdException {
         synchronized (subscriptionsChangedSync) {
             if (subscriptionsChanged == null) {
-                subscriptionsChanged = AzureManagerImpl.getManager().registerSubscriptionsChanged();
+                subscriptionsChanged = AzureManagerImpl.getManager(project).registerSubscriptionsChanged();
             }
 
             registeredSubscriptionsChanged = true;
@@ -915,7 +912,7 @@ public class BlobExplorerFileEditor implements FileEditor {
             registeredSubscriptionsChanged = false;
 
             if (subscriptionsChanged != null) {
-                AzureManagerImpl.getManager().unregisterSubscriptionsChanged(subscriptionsChanged);
+                AzureManagerImpl.getManager(project).unregisterSubscriptionsChanged(subscriptionsChanged);
                 subscriptionsChanged = null;
             }
         }

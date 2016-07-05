@@ -122,7 +122,7 @@ public class CreateWebHostingPlanForm extends DialogWrapper {
     @Override
     protected void doOKAction() {
         boolean isOK = true;
-        AzureManager manager = AzureManagerImpl.getManager();
+        AzureManager manager = AzureManagerImpl.getManager(project);
         mainPanel.getRootPane().getParent().setCursor(new Cursor(Cursor.WAIT_CURSOR));
         try {
             if (subscriptionId == null || subscriptionId.isEmpty()) {
@@ -166,7 +166,7 @@ public class CreateWebHostingPlanForm extends DialogWrapper {
 
     private void fillGeoRegions() {
         try {
-            List<Location> locationList = AzureManagerImpl.getManager().getLocations(subscriptionId);
+            List<Location> locationList = AzureManagerImpl.getManager(project).getLocations(subscriptionId);
             List<String> locationNameList = new ArrayList<String>();
             for (Location location : locationList) {
                 locationNameList.add(location.getName());

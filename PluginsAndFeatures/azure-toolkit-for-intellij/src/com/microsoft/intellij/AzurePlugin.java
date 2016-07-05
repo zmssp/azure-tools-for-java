@@ -34,9 +34,11 @@ import com.intellij.openapi.startup.StartupManager;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.util.PlatformUtils;
 import com.intellij.util.containers.HashSet;
+import com.interopbridges.tools.windowsazure.ParserXMLUtility;
 import com.interopbridges.tools.windowsazure.WindowsAzureProjectManager;
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResource;
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResourceRegistry;
+import com.microsoft.intellij.common.CommonConst;
 import com.microsoft.intellij.ui.libraries.AILibraryHandler;
 import com.microsoft.intellij.ui.libraries.AzureLibrary;
 import com.microsoft.intellij.ui.messages.AzureBundle;
@@ -49,7 +51,6 @@ import com.microsoftopentechnologies.azurecommons.xmlhandling.DataOperations;
 import com.microsoftopentechnologies.azurecommons.deploy.DeploymentEventArgs;
 import com.microsoftopentechnologies.azurecommons.deploy.DeploymentEventListener;
 import com.microsoftopentechnologies.azurecommons.wacommonutil.FileUtil;
-import com.microsoftopentechnologies.azurecommons.xmlhandling.ParseXMLUtilMethods;
 import com.microsoftopentechnologies.windowsazure.tools.cspack.Utils;
 
 import javax.swing.event.EventListenerList;
@@ -72,10 +73,9 @@ import static com.microsoft.intellij.ui.messages.AzureBundle.message;
 
 public class AzurePlugin extends AbstractProjectComponent {
     private static final Logger LOG = Logger.getInstance("#com.microsoft.intellij.AzurePlugin");
-    public static final String PLUGIN_ID = "azure-toolkit-for-intellij";
-    public static final String COMPONENTSETS_VERSION = "2.9.0"; // todo: temporary fix!
-    public static final String PLUGIN_VERSION = "1.3";
-    private static final String PREFERENCESETS_VERSION = "2.9.0";
+    public static final String COMPONENTSETS_VERSION = "2.9.1"; // todo: temporary fix!
+    public static final String PLUGIN_VERSION = "1.4";
+    private static final String PREFERENCESETS_VERSION = "2.9.1";
     public static final String AZURE_LIBRARIES_VERSION = "0.9.2";
     public static final String QPID_LIBRARIES_VERSION = "0.19.0";
     public final static int REST_SERVICE_MAX_RETRY_COUNT = 7;
@@ -91,7 +91,7 @@ public class AzurePlugin extends AbstractProjectComponent {
 
     public static File cmpntFile = new File(WAHelper.getTemplateFile(message("cmpntFileName")));
     public static String prefFilePath = WAHelper.getTemplateFile(message("prefFileName"));
-    public static String pluginFolder = String.format("%s%s%s", PathManager.getPluginsPath(), File.separator, AzurePlugin.PLUGIN_ID);
+    public static String pluginFolder = PluginUtil.getPluginRootDirectory();
 
     private static final EventListenerList DEPLOYMENT_EVENT_LISTENERS = new EventListenerList();
     public static List<DeploymentEventListener> depEveList = new ArrayList<DeploymentEventListener>();
@@ -99,11 +99,9 @@ public class AzurePlugin extends AbstractProjectComponent {
     String dataFile = WAHelper.getTemplateFile(message("dataFileName"));
 
     private final AzureSettings azureSettings;
-    public static Project project;
 
     public AzurePlugin(Project project) {
         super(project);
-        this.project = project;
         this.azureSettings = AzureSettings.getSafeInstance(project);
         AzureToolkitFilter.setUserAgent(String.format(USER_AGENT, PLUGIN_VERSION));
     }
@@ -154,10 +152,10 @@ public class AzurePlugin extends AbstractProjectComponent {
                     if (prefValue == null || prefValue.isEmpty()) {
                         setValues(dataFile);
                     } else if (instID == null || instID.isEmpty()) {
-                        Document doc = ParseXMLUtilMethods.parseFile(dataFile);
+                        Document doc = ParserXMLUtility.parseXMLFile(dataFile);
                         DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
                         DataOperations.updatePropertyValue(doc, message("instID"), dateFormat.format(new Date()));
-                        ParseXMLUtilMethods.saveXMLDocument(dataFile, doc);
+                        ParserXMLUtility.saveXMLFile(dataFile, doc);
                     }
                 } else {
                     // proceed with setValues method. Case of new plugin installation
@@ -173,8 +171,8 @@ public class AzurePlugin extends AbstractProjectComponent {
 
     private void initializeAIRegistry() {
         try {
-            AzureSettings.getSafeInstance(project).loadAppInsights();
-            Module[] modules = ModuleManager.getInstance(project).getModules();
+            AzureSettings.getSafeInstance(myProject).loadAppInsights();
+            Module[] modules = ModuleManager.getInstance(myProject).getModules();
             for (Module module : modules) {
                 if (module != null && module.isLoaded() && ModuleTypeId.JAVA_MODULE.equals(module.getOptionValue(Module.ELEMENT_TYPE))) {
                     String aiXMLPath = String.format("%s%s%s", PluginUtil.getModulePath(module), File.separator, message("aiXMLPath"));
@@ -195,14 +193,14 @@ public class AzurePlugin extends AbstractProjectComponent {
                     }
                 }
             }
-            AzureSettings.getSafeInstance(project).saveAppInsights();
+            AzureSettings.getSafeInstance(myProject).saveAppInsights();
         } catch (Exception ex) {
             AzurePlugin.log(ex.getMessage(), ex);
         }
     }
 
     private void setValues(final String dataFile) throws Exception {
-        final Document doc = ParseXMLUtilMethods.parseFile(dataFile);
+        final Document doc = ParserXMLUtility.parseXMLFile(dataFile);
         ApplicationManager.getApplication().invokeLater(new Runnable() {
             @Override
             public void run() {
@@ -213,7 +211,7 @@ public class AzurePlugin extends AbstractProjectComponent {
                 DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
                 DataOperations.updatePropertyValue(doc, message("instID"), dateFormat.format(new Date()));
                 try {
-                    ParseXMLUtilMethods.saveXMLDocument(dataFile, doc);
+                    ParserXMLUtility.saveXMLFile(dataFile, doc);
                 } catch (Exception ex) {
                     LOG.error(message("error"), ex);
                 }
@@ -241,23 +239,23 @@ public class AzurePlugin extends AbstractProjectComponent {
     }
 
     private void loadWebappsSettings() {
-        StartupManager.getInstance(project).runWhenProjectIsInitialized(
+        StartupManager.getInstance(myProject).runWhenProjectIsInitialized(
                 new Runnable() {
                     @Override
                     public void run() {
-                        Module[] modules = ModuleManager.getInstance(project).getModules();
+                        Module[] modules = ModuleManager.getInstance(myProject).getModules();
                         Set<String> javaModules = new HashSet<String>();
                         for (Module module : modules) {
                             if (ModuleTypeId.JAVA_MODULE.equals(module.getOptionValue(Module.ELEMENT_TYPE))) {
                                 javaModules.add(module.getName());
                             }
                         }
-                        Set<String> keys = AzureSettings.getSafeInstance(project).getPropertyKeys();
+                        Set<String> keys = AzureSettings.getSafeInstance(myProject).getPropertyKeys();
                         for (String key : keys) {
                             if (key.endsWith(".webapps")) {
                                 String projName = key.substring(0, key.lastIndexOf("."));
                                 if (!javaModules.contains(projName)) {
-                                    AzureSettings.getSafeInstance(project).unsetProperty(key);
+                                    AzureSettings.getSafeInstance(myProject).unsetProperty(key);
                                 }
                             }
                         }
@@ -266,7 +264,7 @@ public class AzurePlugin extends AbstractProjectComponent {
     }
 
     private void telemetryAI() {
-        ModuleManager.getInstance(project).getModules();
+        ModuleManager.getInstance(myProject).getModules();
     }
 
     public String getComponentName() {
@@ -274,20 +272,18 @@ public class AzurePlugin extends AbstractProjectComponent {
     }
 
     /**
-     * Copies MS Open Tech Tools for Azure
+     * Copies Azure Toolkit for IntelliJ
      * related files in azure-toolkit-for-intellij plugin folder at startup.
      */
     private void copyPluginComponents() {
         try {
-            String pluginInstLoc = String.format("%s%s%s", PathManager.getPluginsPath(), File.separator, PLUGIN_ID);
-
-            String cmpntFile = String.format("%s%s%s", pluginInstLoc,
+            String cmpntFile = String.format("%s%s%s", pluginFolder,
                     File.separator, AzureBundle.message("cmpntFileName"));
-            String starterKit = String.format("%s%s%s", pluginInstLoc,
+            String starterKit = String.format("%s%s%s", pluginFolder,
                     File.separator, AzureBundle.message("starterKitFileName"));
-            String enctFile = String.format("%s%s%s", pluginInstLoc,
+            String enctFile = String.format("%s%s%s", pluginFolder,
                     File.separator, message("encFileName"));
-            String prefFile = String.format("%s%s%s", pluginInstLoc,
+            String prefFile = String.format("%s%s%s", pluginFolder,
                     File.separator, AzureBundle.message("prefFileName"));
 
             // upgrade component sets and preference sets
@@ -305,12 +301,29 @@ public class AzurePlugin extends AbstractProjectComponent {
             copyResourceFile(message("starterKitEntry"), starterKit);
             copyResourceFile(message("encFileName"), enctFile);
             for (AzureLibrary azureLibrary : AzureLibrary.LIBRARIES) {
-                if (!new File(pluginInstLoc + File.separator + azureLibrary.getLocation()).exists()) {
-                    for (String entryName : Utils.getJarEntries(pluginInstLoc + File.separator + "lib" + File.separator + PLUGIN_ID + ".jar", azureLibrary.getLocation())) {
-                        new File(pluginInstLoc + File.separator + entryName).getParentFile().mkdirs();
-                        copyResourceFile(entryName, pluginInstLoc + File.separator + entryName);
+                if (!new File(pluginFolder + File.separator + azureLibrary.getLocation()).exists()) {
+                    for (String entryName : Utils.getJarEntries(pluginFolder + File.separator + "lib" + File.separator + CommonConst.PLUGIN_NAME + ".jar", azureLibrary.getLocation())) {
+                        new File(pluginFolder + File.separator + entryName).getParentFile().mkdirs();
+                        copyResourceFile(entryName, pluginFolder + File.separator + entryName);
                     }
                 }
+            }
+            // copy remote debugging files
+            File remoteDebugFolder = new File(WAHelper.getTemplateFile("remotedebug"));
+            if (!remoteDebugFolder.exists()) {
+                remoteDebugFolder.mkdir();
+            }
+            String debugBat = WAHelper.getDebugFile("DebugSession.bat");
+            if (!new File(debugBat).exists()) {
+                copyResourceFile(message("debugBat"), debugBat);
+            }
+            String debugJar = WAHelper.getDebugFile("azure-websites-remote-debugging.jar");
+            if (!new File(debugJar).exists()) {
+                copyResourceFile(message("debugJar"), debugJar);
+            }
+            String debugConfig = WAHelper.getDebugFile("web.config");
+            if (!new File(debugConfig).exists()) {
+                copyResourceFile(message("debugConfig"), debugConfig);
             }
         } catch (Exception e) {
             LOG.error(e.getMessage(), e);
@@ -416,7 +429,7 @@ public class AzurePlugin extends AbstractProjectComponent {
         depEveList.clear();
     }
 
-    public static void log(String message, Exception ex) {
+    public static void log(String message, Throwable ex) {
         LOG.error(message, ex);
         LOG.info(message);
     }

@@ -22,45 +22,19 @@
 package com.microsoft.tooling.msservices.helpers.azure;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.security.KeyManagementException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathConstants;
@@ -81,62 +55,34 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
+import com.microsoft.applicationinsights.management.rest.ApplicationInsightsManagementClient;
+import com.microsoft.applicationinsights.management.rest.model.Resource;
+import com.microsoft.auth.tenants.Tenant;
+import com.microsoft.auth.tenants.TenantsClient;
 import com.microsoft.azure.management.resources.ResourceManagementClient;
 import com.microsoft.azure.management.resources.models.ResourceGroupExtended;
 import com.microsoft.azure.management.websites.WebSiteManagementClient;
 import com.microsoft.azure.management.websites.models.WebHostingPlan;
-import com.microsoft.tooling.msservices.components.AppSettingsNames;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.components.PluginSettings;
 import com.microsoft.tooling.msservices.helpers.IDEHelper.ArtifactDescriptor;
 import com.microsoft.tooling.msservices.helpers.IDEHelper.ProjectDescriptor;
 import com.microsoft.tooling.msservices.helpers.NotNull;
 import com.microsoft.tooling.msservices.helpers.Nullable;
-import com.microsoft.tooling.msservices.helpers.OpenSSLHelper;
-import com.microsoft.tooling.msservices.helpers.StringHelper;
 import com.microsoft.tooling.msservices.helpers.XmlHelper;
-import com.microsoft.tooling.msservices.helpers.auth.AADManager;
 import com.microsoft.tooling.msservices.helpers.auth.AADManagerImpl;
 import com.microsoft.tooling.msservices.helpers.auth.UserInfo;
 import com.microsoft.tooling.msservices.helpers.azure.rest.AzureAADHelper;
-import com.microsoft.tooling.msservices.helpers.azure.rest.AzureCertificateHelper;
-import com.microsoft.tooling.msservices.helpers.azure.rest.MobileServiceRestManager;
 import com.microsoft.tooling.msservices.helpers.azure.rest.RestServiceManager.ContentType;
 import com.microsoft.tooling.msservices.helpers.azure.rest.RestServiceManagerBaseImpl;
-import com.microsoft.tooling.msservices.helpers.azure.rest.model.CustomAPIData;
-import com.microsoft.tooling.msservices.helpers.azure.rest.model.JobData;
-import com.microsoft.tooling.msservices.helpers.azure.rest.model.LogData;
-import com.microsoft.tooling.msservices.helpers.azure.rest.model.MobileServiceData;
-import com.microsoft.tooling.msservices.helpers.azure.rest.model.TableColumnData;
-import com.microsoft.tooling.msservices.helpers.azure.rest.model.TableData;
-import com.microsoft.tooling.msservices.helpers.azure.rest.model.TablePermissionsData;
-import com.microsoft.tooling.msservices.helpers.azure.rest.model.TableScriptData;
 import com.microsoft.tooling.msservices.helpers.azure.sdk.AzureSDKHelper;
 import com.microsoft.tooling.msservices.helpers.azure.sdk.SDKRequestCallback;
 import com.microsoft.tooling.msservices.helpers.tasks.CancellableTask;
 import com.microsoft.tooling.msservices.model.Subscription;
-import com.microsoft.tooling.msservices.model.ms.Column;
-import com.microsoft.tooling.msservices.model.ms.CustomAPI;
-import com.microsoft.tooling.msservices.model.ms.CustomAPIPermissions;
-import com.microsoft.tooling.msservices.model.ms.Job;
-import com.microsoft.tooling.msservices.model.ms.LogEntry;
-import com.microsoft.tooling.msservices.model.ms.MobileService;
-import com.microsoft.tooling.msservices.model.ms.PermissionItem;
-import com.microsoft.tooling.msservices.model.ms.Script;
-import com.microsoft.tooling.msservices.model.ms.SqlDb;
-import com.microsoft.tooling.msservices.model.ms.SqlServer;
-import com.microsoft.tooling.msservices.model.ms.Table;
-import com.microsoft.tooling.msservices.model.ms.TablePermissions;
 import com.microsoft.tooling.msservices.model.storage.StorageAccount;
-import com.microsoft.tooling.msservices.model.vm.AffinityGroup;
-import com.microsoft.tooling.msservices.model.vm.CloudService;
-import com.microsoft.tooling.msservices.model.vm.Location;
-import com.microsoft.tooling.msservices.model.vm.VirtualMachine;
-import com.microsoft.tooling.msservices.model.vm.VirtualMachineImage;
-import com.microsoft.tooling.msservices.model.vm.VirtualMachineSize;
-import com.microsoft.tooling.msservices.model.vm.VirtualNetwork;
+import com.microsoft.tooling.msservices.model.vm.*;
+import com.microsoft.tooling.msservices.model.storage.ClientStorageAccount;
 import com.microsoft.tooling.msservices.model.ws.WebHostingPlanCache;
 import com.microsoft.tooling.msservices.model.ws.WebSite;
 import com.microsoft.tooling.msservices.model.ws.WebSiteConfiguration;
@@ -156,11 +102,29 @@ import com.microsoft.windowsazure.management.models.SubscriptionGetResponse;
 import com.microsoft.windowsazure.management.network.NetworkManagementClient;
 import com.microsoft.windowsazure.management.storage.StorageManagementClient;
 import com.microsoftopentechnologies.azuremanagementutil.rest.SubscriptionTransformer;
+import org.apache.commons.net.ftp.FTP;
+import org.apache.commons.net.ftp.FTPClient;
+import org.apache.commons.net.ftp.FTPFile;
+import org.apache.commons.net.ftp.FTPReply;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
-import sun.misc.BASE64Decoder;
-import sun.misc.BASE64Encoder;
+import javax.net.ssl.SSLSocketFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import java.io.*;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.logging.Logger;
 
-public class AzureManagerImpl implements AzureManager {
+public class AzureManagerImpl extends AzureManagerBaseImpl implements AzureManager {
+    Logger logger = Logger.getLogger(AzureManagerImpl.class.getName());
+
     private interface AzureSDKClientProvider<V extends Closeable> {
         @NotNull
         V getSSLClient(@NotNull Subscription subscription)
@@ -171,55 +135,18 @@ public class AzureManagerImpl implements AzureManager {
                 throws Throwable;
     }
 
-    private static class EventWaitHandleImpl implements EventWaitHandle {
-        Semaphore eventSignal = new Semaphore(0, true);
-
-        @Override
-        public void waitEvent(@NotNull Runnable callback)
-                throws AzureCmdException {
-            try {
-                eventSignal.acquire();
-                callback.run();
-            } catch (InterruptedException e) {
-                throw new AzureCmdException("Unable to aquire permit", e);
-            }
-        }
-
-        private synchronized void signalEvent() {
-            if (eventSignal.availablePermits() == 0) {
-                eventSignal.release();
-            }
-        }
-    }
-
-    private static AzureManager instance;
-    private static Gson gson;
-
-    private AADManager aadManager;
-
-    private ReentrantReadWriteLock authDataLock = new ReentrantReadWriteLock(false);
-    private Map<String, Subscription> subscriptions;
-    private UserInfo userInfo;
-
-    private ReentrantReadWriteLock subscriptionMapLock = new ReentrantReadWriteLock(false);
-    private Map<String, ReentrantReadWriteLock> lockBySubscriptionId = new HashMap<String, ReentrantReadWriteLock>();
-    private Map<String, UserInfo> userInfoBySubscriptionId;
-    private Map<String, SSLSocketFactory> sslSocketFactoryBySubscriptionId;
+    private static Map<Object, AzureManagerImpl> instances = new HashMap<>();
 
     private String accessToken; // this field to be used from cspack ant task only
 
-    private ReentrantReadWriteLock userMapLock = new ReentrantReadWriteLock(false);
-    private Map<UserInfo, ReentrantReadWriteLock> lockByUser;
-    private Map<UserInfo, String> accessTokenByUser;
-
     private ReentrantReadWriteLock subscriptionsChangedLock = new ReentrantReadWriteLock(true);
-    private Set<EventWaitHandleImpl> subscriptionsChangedHandles;
 
-    private AzureManagerImpl() {
+    private AzureManagerImpl(Object projectObject) {
+        super(projectObject);
         authDataLock.writeLock().lock();
 
         try {
-            aadManager = AADManagerImpl.getManager();
+            aadManager = new AADManagerImpl();
 
             loadSubscriptions();
             loadUserInfo();
@@ -234,12 +161,16 @@ public class AzureManagerImpl implements AzureManager {
             accessTokenByUser = new HashMap<UserInfo, String>();
             lockByUser = new HashMap<UserInfo, ReentrantReadWriteLock>();
             subscriptionsChangedHandles = new HashSet<EventWaitHandleImpl>();
+        } catch (Exception e) {
+            // TODO.shch: handle the exception
+            logger.warning(e.getMessage());
         } finally {
             authDataLock.writeLock().unlock();
         }
     }
 
     private AzureManagerImpl(String accessToken) {
+        super(DEFAULT_PROJECT);
         authDataLock.writeLock().lock();
 
         try {
@@ -268,29 +199,97 @@ public class AzureManagerImpl implements AzureManager {
      * This method for now is supposed to be used from cspack ant task only
      */
     public static synchronized AzureManager initManager(String accessToken) {
-        instance = new AzureManagerImpl(accessToken);
+        AzureManagerImpl instance = new AzureManagerImpl(accessToken);
+        instances.put(DEFAULT_PROJECT, instance);
         return instance;
+    }
+
+    /**
+     * Because different IntelliJ windows share same static class information, need to associate
+     */
+    public static synchronized void initAzureManager(Object projectObject) {
+        if (instances.get(projectObject) == null) {
+            AzureManagerImpl instance = new AzureManagerImpl(projectObject);
+            instances.put(projectObject, instance);
+        }
     }
 
     @NotNull
     public static synchronized AzureManager getManager() {
-        if (instance == null) {
-            gson = new GsonBuilder().enableComplexMapKeySerialization().create();
-            instance = new AzureManagerImpl();
-        }
-
-        return instance;
+        return getManager(DefaultLoader.getIdeHelper().getCurrentProject());
     }
+
+    @NotNull
+    public static synchronized AzureManagerImpl getManager(Object currentProject) {
+        if (currentProject == null) {
+            currentProject = DEFAULT_PROJECT;
+        }
+        if (instances.get(currentProject) == null) {
+            AzureManagerImpl instance = new AzureManagerImpl(currentProject);
+            instances.put(currentProject, instance);
+        }
+        return instances.get(currentProject);
+//        if (instance == null) {
+//            gson = new GsonBuilder().enableComplexMapKeySerialization().create();
+//            instance = new AzureManagerImpl();
+//        }
+//
+//        return instance;
+    }
+
+    // this method is called when "Sign in" dialog button is clicked
 
     @Override
     public void authenticate() throws AzureCmdException {
         final PluginSettings settings = DefaultLoader.getPluginComponent().getSettings();
         final String managementUri = settings.getAzureServiceManagementUri();
 
-        final UserInfo userInfo = aadManager.authenticate(managementUri, "Sign in to your Azure account");
-        setUserInfo(userInfo);
+        // FIXME.shch: need to extend interface?
+        com.microsoft.auth.AuthenticationResult res = ((AADManagerImpl)aadManager).auth(null, null, com.microsoft.auth.PromptBehavior.Always);
 
-        List<Subscription> subscriptions = requestWithToken(userInfo, new RequestCallback<List<Subscription>>() {
+        try {
+            List<Tenant> tenants = TenantsClient.getByToken(res.getAccessToken());
+            for (Tenant t : tenants) {
+                String tid = t.getTenantId();
+
+                // FIXME.shch: fast fix to ignore self-made AAD tenants
+                res = null;
+                try {
+                    res = ((AADManagerImpl)aadManager).auth(null, tid, com.microsoft.auth.PromptBehavior.Auto);
+                } catch (Exception e) {
+                    logger.warning(String.format("TenantId '%s' auth error: %s", t, e.getMessage()));
+                }
+                if(res == null) continue;;
+
+                UserInfo userInfo = new UserInfo(tid, res.getUserInfo().getUniqueId());
+
+                List<Subscription> legacySubscriptions = getLegacySubscriptions(managementUri, userInfo);
+
+                List<com.microsoft.auth.subsriptions.Subscription> subscriptions = com.microsoft.auth.subsriptions.SubscriptionsClient.getByToken(res.getAccessToken());
+                for (com.microsoft.auth.subsriptions.Subscription s : subscriptions) {
+                    Subscription sub = new Subscription();
+                    sub.setId(s.getSubscriptionId());
+                    sub.setName(s.getDisplayName());
+                    sub.setTenantId(tid);
+                    sub.setServiceManagementUrl(managementUri);
+                    sub.setSelected(true);
+                    for (Subscription subscription : legacySubscriptions) {
+                        if (s.getSubscriptionId().equals(subscription.getId())) {
+                            sub.setMaxHostedServices(subscription.getMaxHostedServices());
+                            sub.setMaxStorageAccounts(subscription.getMaxStorageAccounts());
+                        }
+                    }
+                    updateSubscription(sub, userInfo);
+                }
+                setUserInfo(userInfo);
+            }
+        } catch (Exception ex) {
+            throw new AzureCmdException("Error loading tenants", ex);
+        }
+    }
+
+    private List<Subscription> getLegacySubscriptions(final String managementUri, final UserInfo userInfo) throws AzureCmdException {
+        return requestWithToken(userInfo, new RequestCallback<List<Subscription>>() {
             @Override
             public List<Subscription> execute()
                     throws Throwable {
@@ -315,17 +314,9 @@ public class AzureManagerImpl implements AzureManager {
                                 throw new UnsupportedOperationException();
                             }
                         });
-
                 return parseSubscriptionsXML(subscriptionsXML);
             }
         });
-
-        for (Subscription subscription : subscriptions) {
-            UserInfo subscriptionUser = new UserInfo(subscription.getTenantId(), userInfo.getUniqueName());
-            aadManager.authenticate(subscriptionUser, managementUri, "Sign in to your Azure account");
-
-            updateSubscription(subscription, subscriptionUser);
-        }
     }
 
     @Override
@@ -340,7 +331,18 @@ public class AzureManagerImpl implements AzureManager {
 
     @Override
     public void clearAuthentication() {
+        try {
+            ((AADManagerImpl)aadManager).clearTokenCache();
+        } catch (Exception e) {
+            // TODO.shch: handle the exception
+            logger.warning(e.getMessage());
+        }
+
         setUserInfo(null);
+        userInfoBySubscriptionId.clear();
+        removeUnusedSubscriptions();
+
+        storeSubscriptions();
     }
 
     @Override
@@ -408,8 +410,7 @@ public class AzureManagerImpl implements AzureManager {
 
     @NotNull
     @Override
-    public List<Subscription> getSubscriptionList()
-            throws AzureCmdException {
+    public List<Subscription> getSubscriptionList() {
         authDataLock.readLock().lock();
 
         try {
@@ -479,763 +480,6 @@ public class AzureManagerImpl implements AzureManager {
         }
 
         ((EventWaitHandleImpl) handle).signalEvent();
-    }
-
-    @NotNull
-    @Override
-    public List<SqlDb> getSqlDb(@NotNull String subscriptionId, @NotNull SqlServer server)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/sqlservers/servers/%s/databases?contentview=generic",
-                    subscriptionId, server.getName());
-
-            String xml = executeGetRequest(subscriptionId, path);
-
-            List<SqlDb> res = new ArrayList<SqlDb>();
-            NodeList nl = (NodeList) XmlHelper.getXMLValue(xml, "//ServiceResource", XPathConstants.NODESET);
-
-            for (int i = 0; i != nl.getLength(); i++) {
-
-                SqlDb sqls = new SqlDb();
-                sqls.setName(XmlHelper.getChildNodeValue(nl.item(i), "Name"));
-                sqls.setEdition(XmlHelper.getChildNodeValue(nl.item(i), "Edition"));
-                sqls.setServer(server);
-                res.add(sqls);
-            }
-
-            return res;
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error getting database list", t);
-        }
-    }
-
-    @NotNull
-    @Override
-    public List<SqlServer> getSqlServers(@NotNull String subscriptionId)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/sqlservers/servers", subscriptionId);
-            String xml = executeGetRequest(subscriptionId, path);
-
-            List<SqlServer> res = new ArrayList<SqlServer>();
-
-            NodeList nl = (NodeList) XmlHelper.getXMLValue(xml, "//Server", XPathConstants.NODESET);
-
-            for (int i = 0; i != nl.getLength(); i++) {
-                SqlServer sqls = new SqlServer();
-
-                sqls.setAdmin(XmlHelper.getChildNodeValue(nl.item(i), "AdministratorLogin"));
-                sqls.setName(XmlHelper.getChildNodeValue(nl.item(i), "Name"));
-                sqls.setRegion(XmlHelper.getChildNodeValue(nl.item(i), "Location"));
-                res.add(sqls);
-            }
-
-            return res;
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error getting server list", t);
-        }
-    }
-
-    @NotNull
-    @Override
-    public List<MobileService> getMobileServiceList(@NotNull String subscriptionId)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices", subscriptionId);
-            String json = executeGetRequest(subscriptionId, path);
-
-            Type type = new TypeToken<ArrayList<MobileServiceData>>() {
-            }.getType();
-            List<MobileServiceData> tempRes = new Gson().fromJson(json, type);
-
-            List<MobileService> res = new ArrayList<MobileService>();
-
-            for (MobileServiceData item : tempRes) {
-                MobileService ser = new MobileService();
-
-                ser.setName(item.getName());
-                ser.setType(item.getType());
-                ser.setState(item.getState());
-                ser.setSelfLink(item.getSelflink());
-                ser.setAppUrl(item.getApplicationUrl());
-                ser.setAppKey(item.getApplicationKey());
-                ser.setMasterKey(item.getMasterKey());
-                ser.setWebspace(item.getWebspace());
-                ser.setRegion(item.getRegion());
-                ser.setMgmtPortalLink(item.getManagementPortalLink());
-                ser.setSubcriptionId(subscriptionId);
-
-                if (item.getPlatform() != null && item.getPlatform().equals("dotNet")) {
-                    ser.setRuntime(MobileService.NET_RUNTIME);
-                } else {
-                    ser.setRuntime(MobileService.NODE_RUNTIME);
-                }
-
-                for (MobileServiceData.Table table : item.getTables()) {
-                    Table t = new Table();
-                    t.setName(table.getName());
-                    t.setSelfLink(table.getSelflink());
-                    ser.getTables().add(t);
-                }
-
-                res.add(ser);
-            }
-
-            return res;
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error getting service list", t);
-        }
-    }
-
-    @Override
-    public void createMobileService(@NotNull String subscriptionId, @NotNull String region,
-                                    @NotNull String username, @NotNull String password,
-                                    @NotNull String mobileServiceName,
-                                    @Nullable String server, @Nullable String database)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/applications", subscriptionId);
-
-            String JSONParameter;
-
-            if (database == null || server == null) {
-                String zumoServerId = UUID.randomUUID().toString().replace("-", "");
-                String zumoDBId = UUID.randomUUID().toString().replace("-", "");
-                String dbName = mobileServiceName + "_db";
-
-                JSONParameter = "{'SchemaVersion':'2012-05.1.0','Location':'" + region + "','ExternalResources':{},'InternalResources':{'ZumoMobileService':" +
-                        "{'ProvisioningParameters':{'Name':'" + mobileServiceName + "','Location':'" + region + "'},'ProvisioningConfigParameters':{'Server':{'StringConcat':" +
-                        "[{'ResourceReference':'ZumoSqlServer_" + zumoServerId + ".Name'},'.database.windows.net']},'Database':{'ResourceReference':'ZumoSqlDatabase_" +
-                        zumoDBId + ".Name'},'AdministratorLogin':'" + username + "','AdministratorLoginPassword':'" + password + "'},'Version':'2012-05-21.1.0'," +
-                        "'Name':'ZumoMobileService','Type':'Microsoft.WindowsAzure.MobileServices.MobileService'},'ZumoSqlServer_" + zumoServerId +
-                        "':{'ProvisioningParameters':{'AdministratorLogin':'" + username + "','AdministratorLoginPassword':'" + password + "','Location':'" + region +
-                        "'},'ProvisioningConfigParameters':{'FirewallRules':[{'Name':'AllowAllWindowsAzureIps','StartIPAddress':'0.0.0.0','EndIPAddress':'0.0.0.0'}]}," +
-                        "'Version':'1.0','Name':'ZumoSqlServer_" + zumoServerId + "','Type':'Microsoft.WindowsAzure.SQLAzure.Server'},'ZumoSqlDatabase_" + zumoDBId +
-                        "':{'ProvisioningParameters':{'Name':'" + dbName + "','Edition':'WEB','MaxSizeInGB':'1','DBServer':{'ResourceReference':'ZumoSqlServer_" +
-                        zumoServerId + ".Name'},'CollationName':'SQL_Latin1_General_CP1_CI_AS'},'Version':'1.0','Name':'ZumoSqlDatabase_" + zumoDBId +
-                        "','Type':'Microsoft.WindowsAzure.SQLAzure.DataBase'}}}";
-            } else {
-                String zumoServerId = UUID.randomUUID().toString().replace("-", "");
-                String zumoDBId = UUID.randomUUID().toString().replace("-", "");
-
-                JSONParameter = "{'SchemaVersion':'2012-05.1.0','Location':'West US','ExternalResources':{'ZumoSqlServer_" + zumoServerId + "':{'Name':'ZumoSqlServer_" + zumoServerId
-                        + "'," + "'Type':'Microsoft.WindowsAzure.SQLAzure.Server','URI':'https://management.core.windows.net:8443/" + subscriptionId
-                        + "/services/sqlservers/servers/" + server + "'}," + "'ZumoSqlDatabase_" + zumoDBId + "':{'Name':'ZumoSqlDatabase_" + zumoDBId +
-                        "','Type':'Microsoft.WindowsAzure.SQLAzure.DataBase'," + "'URI':'https://management.core.windows.net:8443/" + subscriptionId
-                        + "/services/sqlservers/servers/" + server + "/databases/" + database + "'}}," + "'InternalResources':{'ZumoMobileService':{'ProvisioningParameters'" +
-                        ":{'Name':'" + mobileServiceName + "','Location':'" + region + "'},'ProvisioningConfigParameters':{'Server':{'StringConcat':[{'ResourceReference':'ZumoSqlServer_"
-                        + zumoServerId + ".Name'}," + "'.database.windows.net']},'Database':{'ResourceReference':'ZumoSqlDatabase_" + zumoDBId + ".Name'},'AdministratorLogin':" +
-                        "'" + username + "','AdministratorLoginPassword':'" + password + "'},'Version':'2012-05-21.1.0','Name':'ZumoMobileService','Type':" +
-                        "'Microsoft.WindowsAzure.MobileServices.MobileService'}}}";
-            }
-
-            String xmlParameter = String.format("<?xml version=\"1.0\" encoding=\"utf-8\"?><Application xmlns=\"http://schemas.microsoft.com/windowsazure\"><Name>%s</Name>" +
-                            "<Label>%s</Label><Description>%s</Description><Configuration>%s</Configuration></Application>",
-                    mobileServiceName + "mobileservice", mobileServiceName, mobileServiceName, new BASE64Encoder().encode(JSONParameter.getBytes()));
-
-            executePollRequest(subscriptionId, path, ContentType.Xml, "POST", xmlParameter, String.format("/%s/operations/", subscriptionId));
-
-            String xml = executeGetRequest(subscriptionId, String.format("/%s/applications/%s", subscriptionId, mobileServiceName + "mobileservice"));
-            NodeList statusNode = ((NodeList) XmlHelper.getXMLValue(xml, "//Application/State", XPathConstants.NODESET));
-
-            if (!(statusNode.getLength() > 0 && statusNode.item(0).getTextContent().equals("Healthy"))) {
-                deleteMobileService(subscriptionId, mobileServiceName);
-
-                String errors = ((String) XmlHelper.getXMLValue(xml, "//FailureCode[text()]", XPathConstants.STRING));
-                String errorMessage = ((String) XmlHelper.getXMLValue(errors, "//Message[text()]", XPathConstants.STRING));
-                throw new AzureCmdException("Error creating service", errorMessage);
-            }
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error creating service", t);
-        }
-    }
-
-    @Override
-    public void deleteMobileService(@NotNull String subscriptionId, @NotNull String mobileServiceName) {
-        String mspath = String.format("/%s/services/mobileservices/mobileservices/%s?deletedata=true",
-                subscriptionId, mobileServiceName);
-
-        try {
-            executePollRequest(subscriptionId, mspath, ContentType.Json, "DELETE", null, String.format("/%s/operations/", subscriptionId));
-        } catch (Throwable ignored) {
-        }
-
-        String appPath = String.format("/%s/applications/%smobileservice", subscriptionId, mobileServiceName);
-
-        try {
-            executePollRequest(subscriptionId, appPath, ContentType.Xml, "DELETE", null, String.format("/%s/operations/", subscriptionId));
-        } catch (Throwable ignored) {
-        }
-    }
-
-    @NotNull
-    @Override
-    public List<Table> getTableList(@NotNull String subscriptionId, @NotNull String mobileServiceName)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/tables", subscriptionId, mobileServiceName);
-            String json = executeGetRequest(subscriptionId, path);
-
-            Type type = new TypeToken<ArrayList<TableData>>() {
-            }.getType();
-            List<TableData> tempRes = new Gson().fromJson(json, type);
-
-            List<Table> res = new ArrayList<Table>();
-
-            for (TableData item : tempRes) {
-                Table t = new Table();
-                t.setName(item.getName());
-                t.setSelfLink(item.getSelflink());
-
-                res.add(t);
-            }
-
-            return res;
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error getting table list", t);
-        }
-    }
-
-    @Override
-    public void createTable(@NotNull String subscriptionId, @NotNull String mobileServiceName, @NotNull String tableName,
-                            @NotNull TablePermissions permissions)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/tables", subscriptionId, mobileServiceName);
-
-            String postData = "{\"insert\":\"" + PermissionItem.getPermitionString(permissions.getInsert())
-                    + "\",\"read\":\"" + PermissionItem.getPermitionString(permissions.getRead())
-                    + "\",\"update\":\"" + PermissionItem.getPermitionString(permissions.getUpdate())
-                    + "\",\"delete\":\"" + PermissionItem.getPermitionString(permissions.getDelete())
-                    + "\",\"name\":\"" + tableName + "\",\"idType\":\"string\"}";
-
-            executeRequest(subscriptionId, path, ContentType.Json, "POST", postData);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error creating table", t);
-        }
-    }
-
-    @Override
-    public void updateTable(@NotNull String subscriptionId, @NotNull String mobileServiceName, @NotNull String tableName,
-                            @NotNull TablePermissions permissions)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/tables/%s/permissions",
-                    subscriptionId, mobileServiceName, tableName);
-
-            String postData = "{\"insert\":\"" + PermissionItem.getPermitionString(permissions.getInsert())
-                    + "\",\"read\":\"" + PermissionItem.getPermitionString(permissions.getRead())
-                    + "\",\"update\":\"" + PermissionItem.getPermitionString(permissions.getUpdate())
-                    + "\",\"delete\":\"" + PermissionItem.getPermitionString(permissions.getDelete())
-                    + "\"}";
-
-            executeRequest(subscriptionId, path, ContentType.Json, "PUT", postData);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error updating table", t);
-        }
-    }
-
-    @NotNull
-    @Override
-    public Table showTableDetails(@NotNull String subscriptionId, @NotNull String mobileServiceName, @NotNull String tableName)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/tables/%s",
-                    subscriptionId, mobileServiceName, tableName);
-            String json = executeGetRequest(subscriptionId, path);
-            Gson gson = new Gson();
-            TableData tempRes = gson.fromJson(json, TableData.class);
-
-            Table t = new Table();
-            t.setName(tempRes.getName());
-            t.setSelfLink(tempRes.getSelflink());
-
-            TablePermissionsData restTablePermissions = gson.fromJson(executeGetRequest(subscriptionId, path + "/permissions"),
-                    TablePermissionsData.class);
-
-            TablePermissions tablePermissions = new TablePermissions();
-            tablePermissions.setInsert(PermissionItem.getPermitionType(restTablePermissions.getInsert()));
-            tablePermissions.setUpdate(PermissionItem.getPermitionType(restTablePermissions.getUpdate()));
-            tablePermissions.setRead(PermissionItem.getPermitionType(restTablePermissions.getRead()));
-            tablePermissions.setDelete(PermissionItem.getPermitionType(restTablePermissions.getDelete()));
-            t.setTablePermissions(tablePermissions);
-
-            Type colType = new TypeToken<ArrayList<TableColumnData>>() {
-            }.getType();
-            List<TableColumnData> colList = gson.fromJson(executeGetRequest(subscriptionId, path + "/columns"),
-                    colType);
-            if (colList != null) {
-                for (TableColumnData column : colList) {
-                    Column c = new Column();
-                    c.setName(column.getName());
-                    c.setType(column.getType());
-                    c.setSelfLink(column.getSelflink());
-                    c.setIndexed(column.isIndexed());
-                    c.setZumoIndex(column.isZumoIndex());
-
-                    t.getColumns().add(c);
-                }
-            }
-
-            Type scrType = new TypeToken<ArrayList<TableScriptData>>() {
-            }.getType();
-            List<TableScriptData> scrList = gson.fromJson(executeGetRequest(subscriptionId, path + "/scripts"),
-                    scrType);
-
-            if (scrList != null) {
-                for (TableScriptData script : scrList) {
-                    Script s = new Script();
-
-                    s.setOperation(script.getOperation());
-                    s.setBytes(script.getSizeBytes());
-                    s.setSelfLink(script.getSelflink());
-                    s.setName(String.format("%s.%s", tempRes.getName(), script.getOperation()));
-
-                    t.getScripts().add(s);
-                }
-            }
-
-            return t;
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error getting table data", t);
-        }
-    }
-
-    @Override
-    public void downloadTableScript(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                                    @NotNull String scriptName, @NotNull String downloadPath)
-            throws AzureCmdException {
-        try {
-            String tableName = scriptName.split("\\.")[0];
-            String operation = scriptName.split("\\.")[1];
-
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/tables/%s/scripts/%s/code",
-                    subscriptionId, mobileServiceName, tableName, operation);
-            String script = executeGetRequest(subscriptionId, path);
-
-            Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(downloadPath), "utf-8"));
-            writer.write(script);
-            writer.flush();
-            writer.close();
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error download script", t);
-        }
-    }
-
-    @Override
-    public void uploadTableScript(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                                  @NotNull String scriptName, @NotNull String filePath)
-            throws AzureCmdException {
-        try {
-            String tableName = scriptName.split("\\.")[0];
-            String operation = scriptName.split("\\.")[1];
-
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/tables/%s/scripts/%s/code",
-                    subscriptionId, mobileServiceName, tableName, operation);
-            String file = readFile(filePath);
-
-            executeRequest(subscriptionId, path, ContentType.Text, "PUT", file);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error upload script", t);
-        }
-    }
-
-    @NotNull
-    @Override
-    public List<CustomAPI> getAPIList(@NotNull String subscriptionId, @NotNull String mobileServiceName)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/apis",
-                    subscriptionId, mobileServiceName);
-            String json = executeGetRequest(subscriptionId, path);
-
-            Type type = new TypeToken<ArrayList<CustomAPIData>>() {
-            }.getType();
-            List<CustomAPIData> tempRes = new Gson().fromJson(json, type);
-
-            List<CustomAPI> res = new ArrayList<CustomAPI>();
-
-            for (CustomAPIData item : tempRes) {
-                CustomAPI c = new CustomAPI();
-                c.setName(item.getName());
-                CustomAPIPermissions permissions = new CustomAPIPermissions();
-                permissions.setPutPermission(PermissionItem.getPermitionType(item.getPut()));
-                permissions.setPostPermission(PermissionItem.getPermitionType(item.getPost()));
-                permissions.setGetPermission(PermissionItem.getPermitionType(item.getGet()));
-                permissions.setDeletePermission(PermissionItem.getPermitionType(item.getDelete()));
-                permissions.setPatchPermission(PermissionItem.getPermitionType(item.getPatch()));
-                c.setCustomAPIPermissions(permissions);
-                res.add(c);
-            }
-
-            return res;
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error getting API list", t);
-        }
-    }
-
-    @Override
-    public void downloadAPIScript(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                                  @NotNull String scriptName, @NotNull String downloadPath)
-            throws AzureCmdException {
-        try {
-            String apiName = scriptName.split("\\.")[0];
-
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/apis/%s/script",
-                    subscriptionId, mobileServiceName, apiName);
-            String script = executeGetRequest(subscriptionId, path);
-
-            Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(downloadPath), "utf-8"));
-            writer.write(script);
-            writer.flush();
-            writer.close();
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error getting API list", t);
-        }
-    }
-
-    @Override
-    public void uploadAPIScript(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                                @NotNull String scriptName, @NotNull String filePath)
-            throws AzureCmdException {
-        try {
-            String apiName = scriptName.split("\\.")[0];
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/apis/%s/script",
-                    subscriptionId, mobileServiceName, apiName);
-            String file = readFile(filePath);
-
-            executeRequest(subscriptionId, path, ContentType.Text, "PUT", file);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error upload script", t);
-        }
-    }
-
-    @Override
-    public void createCustomAPI(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                                @NotNull String tableName, @NotNull CustomAPIPermissions permissions)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/apis",
-                    subscriptionId, mobileServiceName);
-            String postData = "{\"get\":\"" + permissions.getGetPermission()
-                    + "\",\"put\":\"" + permissions.getPutPermission()
-                    + "\",\"post\":\"" + permissions.getPostPermission()
-                    + "\",\"patch\":\"" + permissions.getPatchPermission()
-                    + "\",\"delete\":\"" + permissions.getDeletePermission()
-                    + "\",\"name\":\"" + tableName + "\"}";
-            executeRequest(subscriptionId, path, ContentType.Json, "POST", postData);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error creating API", t);
-        }
-    }
-
-    @Override
-    public void updateCustomAPI(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                                @NotNull String tableName, @NotNull CustomAPIPermissions permissions)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/apis/%s",
-                    subscriptionId, mobileServiceName, tableName);
-            String postData = "{\"get\":\"" + permissions.getGetPermission()
-                    + "\",\"put\":\"" + permissions.getPutPermission()
-                    + "\",\"post\":\"" + permissions.getPostPermission()
-                    + "\",\"patch\":\"" + permissions.getPatchPermission()
-                    + "\",\"delete\":\"" + permissions.getDeletePermission()
-                    + "\"}";
-            executeRequest(subscriptionId, path, ContentType.Json, "PUT", postData);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error updating API", t);
-        }
-    }
-
-    @Override
-    public void deleteTable(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                            @NotNull String tableName) throws AzureCmdException {
-
-        String path = String.format("/%s/services/mobileservices/mobileservices/%s/tables/%s",
-                subscriptionId, mobileServiceName, tableName);
-        try {
-            executeRequest(subscriptionId, path, ContentType.Xml, "DELETE", null);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error deleting table", t);
-        }
-    }
-
-    @Override
-    public void deleteCustomApi(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                                @NotNull String apiName) throws AzureCmdException {
-
-        String path = String.format("/%s/services/mobileservices/mobileservices/%s/apis/%s",
-                subscriptionId, mobileServiceName, apiName);
-        try {
-            executeRequest(subscriptionId, path, ContentType.Xml, "DELETE", null);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error deleting API", t);
-        }
-    }
-
-    @Override
-    public void deleteJob(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                          @NotNull String jobName) throws AzureCmdException {
-
-        String path = String.format("/%s/services/mobileservices/mobileservices/%s/scheduler/jobs/%s",
-                subscriptionId, mobileServiceName, jobName);
-        try {
-            executeRequest(subscriptionId, path, ContentType.Xml, "DELETE", null);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error deleting job", t);
-        }
-    }
-
-    @NotNull
-    @Override
-    public List<Job> listJobs(@NotNull String subscriptionId, @NotNull String mobileServiceName)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/scheduler/jobs",
-                    subscriptionId, mobileServiceName);
-            String json = executeGetRequest(subscriptionId, path);
-
-            Type type = new TypeToken<ArrayList<JobData>>() {
-            }.getType();
-            List<JobData> tempRes = new Gson().fromJson(json, type);
-
-            List<Job> res = new ArrayList<Job>();
-
-            for (JobData item : tempRes) {
-                Job j = new Job();
-                j.setAppName(item.getAppName());
-                j.setName(item.getName());
-                j.setEnabled(item.getStatus().equals("enabled"));
-                j.setId(UUID.fromString(item.getId()));
-
-                if (item.getIntervalPeriod() > 0) {
-                    j.setIntervalPeriod(item.getIntervalPeriod());
-                    j.setIntervalUnit(item.getIntervalUnit());
-                }
-
-                res.add(j);
-            }
-
-            return res;
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error getting job list", t);
-        }
-    }
-
-    @Override
-    public void createJob(@NotNull String subscriptionId, @NotNull String mobileServiceName, @NotNull String jobName,
-                          int interval, @NotNull String intervalUnit, @NotNull String startDate)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/scheduler/jobs",
-                    subscriptionId, mobileServiceName);
-            String postData = "{\"name\":\"" + jobName + "\""
-                    + (
-                    intervalUnit.equals("none") ? "" : (",\"intervalUnit\":\"" + intervalUnit
-                            + "\",\"intervalPeriod\":" + String.valueOf(interval)
-                            + ",\"startTime\":\"" + startDate + "\""))
-                    + "}";
-            executeRequest(subscriptionId, path, ContentType.Json, "POST", postData);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error creating jobs", t);
-        }
-    }
-
-    @Override
-    public void updateJob(@NotNull String subscriptionId, @NotNull String mobileServiceName, @NotNull String jobName,
-                          int interval, @NotNull String intervalUnit, @NotNull String startDate, boolean enabled)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/scheduler/jobs/%s",
-                    subscriptionId, mobileServiceName, jobName);
-            String postData = "{"
-                    + "\"status\":\"" + (enabled ? "enabled" : "disabled") + "\""
-                    + (
-                    intervalUnit.equals("none") ? "" : (",\"intervalUnit\":\"" + intervalUnit
-                            + "\",\"intervalPeriod\":" + String.valueOf(interval)
-                            + ",\"startTime\":\"" + startDate + "\""))
-                    + "}";
-
-            if (intervalUnit.equals("none")) {
-                postData = "{\"status\":\"disabled\"}";
-            }
-
-            executeRequest(subscriptionId, path, ContentType.Json, "PUT", postData);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error updating job", t);
-        }
-    }
-
-    @Override
-    public void downloadJobScript(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                                  @NotNull String scriptName, @NotNull String downloadPath)
-            throws AzureCmdException {
-        try {
-            String jobName = scriptName.split("\\.")[0];
-
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/scheduler/jobs/%s/script",
-                    subscriptionId, mobileServiceName, jobName);
-            String script = executeGetRequest(subscriptionId, path);
-
-            Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(downloadPath), "utf-8"));
-            writer.write(script);
-            writer.flush();
-            writer.close();
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error download script", t);
-        }
-    }
-
-    @Override
-    public void uploadJobScript(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                                @NotNull String scriptName, @NotNull String filePath)
-            throws AzureCmdException {
-        try {
-            String jobName = scriptName.split("\\.")[0];
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/scheduler/jobs/%s/script",
-                    subscriptionId, mobileServiceName, jobName);
-            String file = readFile(filePath);
-
-            executeRequest(subscriptionId, path, ContentType.Text, "PUT", file);
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error upload script", t);
-        }
-    }
-
-    @NotNull
-    @Override
-    public List<LogEntry> listLog(@NotNull String subscriptionId, @NotNull String mobileServiceName,
-                                  @NotNull String runtime)
-            throws AzureCmdException {
-        try {
-            String path = String.format("/%s/services/mobileservices/mobileservices/%s/logs?$top=10",
-                    subscriptionId, mobileServiceName);
-            String json = executeGetRequest(subscriptionId, path);
-
-            LogData tempRes = new Gson().fromJson(json, LogData.class);
-
-            List<LogEntry> res = new ArrayList<LogEntry>();
-
-            for (LogData.LogEntry item : tempRes.getResults()) {
-                LogEntry logEntry = new LogEntry();
-
-                logEntry.setMessage(item.getMessage());
-                logEntry.setSource(item.getSource());
-                logEntry.setType(item.getType());
-
-                SimpleDateFormat ISO8601DATEFORMAT;
-
-                if (MobileService.NODE_RUNTIME.equals(runtime)) {
-                    ISO8601DATEFORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ENGLISH);
-                } else {
-                    ISO8601DATEFORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.ENGLISH);
-                }
-                logEntry.setTimeCreated(ISO8601DATEFORMAT.parse(item.getTimeCreated()));
-
-                res.add(logEntry);
-            }
-
-            return res;
-        } catch (Throwable t) {
-            if (t instanceof AzureCmdException) {
-                throw (AzureCmdException) t;
-            }
-
-            throw new AzureCmdException("Error getting log", t);
-        }
     }
 
     @NotNull
@@ -1433,7 +677,7 @@ public class AzureManagerImpl implements AzureManager {
 
 
     @Override
-    public void deleteStorageAccount(@NotNull StorageAccount storageAccount)
+    public void deleteStorageAccount(@NotNull ClientStorageAccount storageAccount)
             throws AzureCmdException {
         requestStorageSDK(storageAccount.getSubscriptionId(), AzureSDKHelper.deleteStorageAccount(storageAccount));
     }
@@ -1553,7 +797,8 @@ public class AzureManagerImpl implements AzureManager {
     public void deployWebArchiveArtifact(@NotNull final ProjectDescriptor projectDescriptor,
     		@NotNull final ArtifactDescriptor artifactDescriptor,
     		@NotNull final WebSite webSite,
-    		@NotNull final boolean isDeployRoot) {
+    		@NotNull final boolean isDeployRoot,
+    		final AzureManager manager) {
     	ListenableFuture<String> future = DefaultLoader.getIdeHelper().buildArtifact(projectDescriptor, artifactDescriptor);
 
     	Futures.addCallback(future, new FutureCallback<String>() {
@@ -1563,7 +808,6 @@ public class AzureManagerImpl implements AzureManager {
     				DefaultLoader.getIdeHelper().runInBackground(projectDescriptor, "Deploying web app", "Deploying web app...", new CancellableTask() {
     					@Override
     					public void run(CancellationHandle cancellationHandle) throws Throwable {
-    						AzureManager manager = AzureManagerImpl.getManager();
     						manager.publishWebArchiveArtifact(webSite.getSubscriptionId(), webSite.getWebSpaceName(), webSite.getName(),
     								artifactPath, isDeployRoot, artifactDescriptor.getName());
     					}
@@ -1702,129 +946,6 @@ public class AzureManagerImpl implements AzureManager {
     	}
     }
 
-    private void loadSubscriptions() {
-        String json = DefaultLoader.getIdeHelper().getProperty(AppSettingsNames.AZURE_SUBSCRIPTIONS);
-
-        if (!StringHelper.isNullOrWhiteSpace(json)) {
-            try {
-                Type subscriptionsType = new TypeToken<HashMap<String, Subscription>>() {
-                }.getType();
-                subscriptions = gson.fromJson(json, subscriptionsType);
-            } catch (JsonSyntaxException ignored) {
-                DefaultLoader.getIdeHelper().unsetProperty(AppSettingsNames.AZURE_SUBSCRIPTIONS);
-            }
-        } else {
-            subscriptions = new HashMap<String, Subscription>();
-        }
-
-        for (String subscriptionId : subscriptions.keySet()) {
-            lockBySubscriptionId.put(subscriptionId, new ReentrantReadWriteLock(false));
-        }
-    }
-
-    private void loadUserInfo() {
-        String json = DefaultLoader.getIdeHelper().getProperty(AppSettingsNames.AZURE_USER_INFO);
-
-        if (!StringHelper.isNullOrWhiteSpace(json)) {
-            try {
-                userInfo = gson.fromJson(json, UserInfo.class);
-            } catch (JsonSyntaxException ignored) {
-                DefaultLoader.getIdeHelper().unsetProperty(AppSettingsNames.AZURE_USER_INFO);
-                DefaultLoader.getIdeHelper().unsetProperty(AppSettingsNames.AZURE_USER_SUBSCRIPTIONS);
-            }
-        } else {
-            DefaultLoader.getIdeHelper().unsetProperty(AppSettingsNames.AZURE_USER_SUBSCRIPTIONS);
-        }
-
-        json = DefaultLoader.getIdeHelper().getProperty(AppSettingsNames.AZURE_USER_SUBSCRIPTIONS);
-
-        if (!StringHelper.isNullOrWhiteSpace(json)) {
-            try {
-                Type userInfoBySubscriptionIdType = new TypeToken<HashMap<String, UserInfo>>() {
-                }.getType();
-                userInfoBySubscriptionId = gson.fromJson(json, userInfoBySubscriptionIdType);
-            } catch (JsonSyntaxException ignored) {
-                DefaultLoader.getIdeHelper().unsetProperty(AppSettingsNames.AZURE_USER_SUBSCRIPTIONS);
-            }
-        } else {
-            userInfoBySubscriptionId = new HashMap<String, UserInfo>();
-        }
-    }
-
-    private void loadSSLSocketFactory() {
-        sslSocketFactoryBySubscriptionId = new HashMap<String, SSLSocketFactory>();
-
-        for (Map.Entry<String, Subscription> subscriptionEntry : subscriptions.entrySet()) {
-            String subscriptionId = subscriptionEntry.getKey();
-            Subscription subscription = subscriptionEntry.getValue();
-            String managementCertificate = subscription.getManagementCertificate();
-
-            if (!StringHelper.isNullOrWhiteSpace(managementCertificate)) {
-                try {
-                    SSLSocketFactory sslSocketFactory = initSSLSocketFactory(managementCertificate);
-                    sslSocketFactoryBySubscriptionId.put(subscriptionId, sslSocketFactory);
-                } catch (Exception e) {
-                    subscription.setManagementCertificate(null);
-                }
-            }
-        }
-    }
-
-    private void removeInvalidUserInfo() {
-        List<String> invalidSubscriptionIds = new ArrayList<String>();
-
-        for (String subscriptionId : userInfoBySubscriptionId.keySet()) {
-            if (!subscriptions.containsKey(subscriptionId)) {
-                invalidSubscriptionIds.add(subscriptionId);
-            }
-        }
-
-        for (String invalidSubscriptionId : invalidSubscriptionIds) {
-            userInfoBySubscriptionId.remove(invalidSubscriptionId);
-        }
-    }
-
-    private void removeUnusedSubscriptions() {
-        List<String> invalidSubscriptionIds = new ArrayList<String>();
-
-        for (Map.Entry<String, Subscription> subscriptionEntry : subscriptions.entrySet()) {
-            String subscriptionId = subscriptionEntry.getKey();
-            Subscription subscription = subscriptionEntry.getValue();
-
-            if (!userInfoBySubscriptionId.containsKey(subscriptionId) &&
-                    !sslSocketFactoryBySubscriptionId.containsKey(subscriptionId)) {
-                invalidSubscriptionIds.add(subscriptionId);
-            } else if (!userInfoBySubscriptionId.containsKey(subscriptionId)) {
-                subscription.setTenantId(null);
-            } else if (!sslSocketFactoryBySubscriptionId.containsKey(subscriptionId)) {
-                subscription.setManagementCertificate(null);
-                subscription.setServiceManagementUrl(null);
-            }
-        }
-
-        for (String invalidSubscriptionId : invalidSubscriptionIds) {
-            lockBySubscriptionId.remove(invalidSubscriptionId);
-            subscriptions.remove(invalidSubscriptionId);
-        }
-    }
-
-    private void storeSubscriptions() {
-        Type subscriptionsType = new TypeToken<HashMap<String, Subscription>>() {
-        }.getType();
-        String json = gson.toJson(subscriptions, subscriptionsType);
-        DefaultLoader.getIdeHelper().setProperty(AppSettingsNames.AZURE_SUBSCRIPTIONS, json);
-    }
-
-    private void storeUserInfo() {
-        String json = gson.toJson(userInfo, UserInfo.class);
-        DefaultLoader.getIdeHelper().setProperty(AppSettingsNames.AZURE_USER_INFO, json);
-
-        Type userInfoBySubscriptionIdType = new TypeToken<HashMap<String, UserInfo>>() {
-        }.getType();
-        json = gson.toJson(userInfoBySubscriptionId, userInfoBySubscriptionIdType);
-        DefaultLoader.getIdeHelper().setProperty(AppSettingsNames.AZURE_USER_SUBSCRIPTIONS, json);
-    }
-
     @NotNull
     private List<Subscription> parseSubscriptionsXML(@NotNull String subscriptionsXML)
             throws SAXException, ParserConfigurationException, XPathExpressionException, IOException {
@@ -1845,25 +966,6 @@ public class AzureManagerImpl implements AzureManager {
         }
 
         return subscriptions;
-    }
-
-    private SSLSocketFactory initSSLSocketFactory(@NotNull String managementCertificate)
-            throws NoSuchAlgorithmException, IOException, KeyStoreException, CertificateException,
-            UnrecoverableKeyException, KeyManagementException {
-        byte[] decodeBuffer = new BASE64Decoder().decodeBuffer(managementCertificate);
-
-        KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
-
-        InputStream is = new ByteArrayInputStream(decodeBuffer);
-
-        KeyStore ks = KeyStore.getInstance("PKCS12");
-        ks.load(is, OpenSSLHelper.PASSWORD.toCharArray());
-        keyManagerFactory.init(ks, OpenSSLHelper.PASSWORD.toCharArray());
-
-        SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(keyManagerFactory.getKeyManagers(), null, new SecureRandom());
-
-        return sslContext.getSocketFactory();
     }
 
     private List<Subscription> importSubscription(@NotNull String publishSettingsFilePath)
@@ -1986,48 +1088,18 @@ public class AzureManagerImpl implements AzureManager {
         }
     }
 
-    @Nullable
-    public UserInfo getUserInfo() {
-        authDataLock.readLock().lock();
-
-        try {
-            return userInfo;
-        } finally {
-            authDataLock.readLock().unlock();
-        }
-    }
-
     private void setUserInfo(@Nullable UserInfo userInfo) {
         authDataLock.writeLock().lock();
 
         try {
             this.userInfo = userInfo;
-            userInfoBySubscriptionId.clear();
-            removeUnusedSubscriptions();
-
-            storeSubscriptions();
+//            userInfoBySubscriptionId.clear();
+//            removeUnusedSubscriptions();
+//
+//            storeSubscriptions();
             storeUserInfo();
         } finally {
             authDataLock.writeLock().unlock();
-        }
-    }
-
-    @NotNull
-    private Subscription getSubscription(@NotNull String subscriptionId)
-            throws AzureCmdException {
-        authDataLock.readLock().lock();
-
-        try {
-            ReentrantReadWriteLock subscriptionLock = getSubscriptionLock(subscriptionId, false);
-            subscriptionLock.readLock().lock();
-
-            try {
-                return subscriptions.get(subscriptionId);
-            } finally {
-                subscriptionLock.readLock().unlock();
-            }
-        } finally {
-            authDataLock.readLock().unlock();
         }
     }
 
@@ -2054,29 +1126,6 @@ public class AzureManagerImpl implements AzureManager {
         }
     }
 
-    @NotNull
-    private UserInfo getUserInfo(@NotNull String subscriptionId)
-            throws AzureCmdException {
-        authDataLock.readLock().lock();
-
-        try {
-            ReentrantReadWriteLock subscriptionLock = getSubscriptionLock(subscriptionId, false);
-            subscriptionLock.readLock().lock();
-
-            try {
-                if (!userInfoBySubscriptionId.containsKey(subscriptionId)) {
-                    throw new AzureCmdException("No User Information for the specified Subscription Id");
-                }
-
-                return userInfoBySubscriptionId.get(subscriptionId);
-            } finally {
-                subscriptionLock.readLock().unlock();
-            }
-        } finally {
-            authDataLock.readLock().unlock();
-        }
-    }
-
     private void setUserInfo(@NotNull String subscriptionId, @NotNull UserInfo userInfo)
             throws AzureCmdException {
         authDataLock.readLock().lock();
@@ -2092,31 +1141,6 @@ public class AzureManagerImpl implements AzureManager {
             } finally {
                 subscriptionLock.writeLock().unlock();
             }
-        } finally {
-            authDataLock.readLock().unlock();
-        }
-    }
-
-    public String getAccessToken(String subscriptionId) {
-        authDataLock.readLock().lock();
-
-        try {
-            ReentrantReadWriteLock subscriptionLock = getSubscriptionLock(subscriptionId, false);
-            subscriptionLock.readLock().lock();
-
-            try {
-                if (!userInfoBySubscriptionId.containsKey(subscriptionId)) {
-                    return "";
-                }
-
-                UserInfo userInfo = userInfoBySubscriptionId.get(subscriptionId);
-                return getAccessToken(userInfo);
-            } finally {
-                subscriptionLock.readLock().unlock();
-            }
-        } catch (AzureCmdException ex) {
-            // return empty string
-            return "";
         } finally {
             authDataLock.readLock().unlock();
         }
@@ -2186,71 +1210,6 @@ public class AzureManagerImpl implements AzureManager {
         }
     }
 
-    private boolean hasAccessToken(@NotNull UserInfo userInfo) {
-        authDataLock.readLock().lock();
-
-        try {
-            Optional<ReentrantReadWriteLock> optionalRWLock = getUserLock(userInfo);
-
-            if (!optionalRWLock.isPresent()) {
-                return false;
-            }
-
-            ReadWriteLock userLock = optionalRWLock.get();
-            userLock.readLock().lock();
-
-            try {
-                return accessTokenByUser.containsKey(userInfo);
-            } finally {
-                userLock.readLock().unlock();
-            }
-        } finally {
-            authDataLock.readLock().unlock();
-        }
-    }
-
-    @NotNull
-    private String getAccessToken(@NotNull UserInfo userInfo)
-            throws AzureCmdException {
-        authDataLock.readLock().lock();
-
-        try {
-            ReentrantReadWriteLock userLock = getUserLock(userInfo, false);
-            userLock.readLock().lock();
-
-            try {
-                if (!accessTokenByUser.containsKey(userInfo)) {
-                    throw new AzureCmdException("No access token for the specified User Information", "");
-                }
-
-                return accessTokenByUser.get(userInfo);
-            } finally {
-                userLock.readLock().unlock();
-            }
-        } finally {
-            authDataLock.readLock().unlock();
-        }
-    }
-
-    private void setAccessToken(@NotNull UserInfo userInfo,
-                                @NotNull String accessToken)
-            throws AzureCmdException {
-        authDataLock.readLock().lock();
-
-        try {
-            ReentrantReadWriteLock userLock = getUserLock(userInfo, true);
-            userLock.writeLock().lock();
-
-            try {
-                accessTokenByUser.put(userInfo, accessToken);
-            } finally {
-                userLock.writeLock().unlock();
-            }
-        } finally {
-            authDataLock.readLock().unlock();
-        }
-    }
-
     private boolean hasAccessToken() {
         authDataLock.readLock().lock();
 
@@ -2258,27 +1217,6 @@ public class AzureManagerImpl implements AzureManager {
             return !(accessToken == null || accessToken.isEmpty());
         } finally {
             authDataLock.readLock().unlock();
-        }
-    }
-
-    @NotNull
-    private ReentrantReadWriteLock getSubscriptionLock(@NotNull String subscriptionId, boolean createOnMissing)
-            throws AzureCmdException {
-        Lock lock = createOnMissing ? subscriptionMapLock.writeLock() : subscriptionMapLock.readLock();
-        lock.lock();
-
-        try {
-            if (!lockBySubscriptionId.containsKey(subscriptionId)) {
-                if (createOnMissing) {
-                    lockBySubscriptionId.put(subscriptionId, new ReentrantReadWriteLock(false));
-                } else {
-                    throw new AzureCmdException("No authentication information for the specified Subscription Id");
-                }
-            }
-
-            return lockBySubscriptionId.get(subscriptionId);
-        } finally {
-            lock.unlock();
         }
     }
 
@@ -2294,111 +1232,6 @@ public class AzureManagerImpl implements AzureManager {
             }
         } finally {
             subscriptionMapLock.readLock().unlock();
-        }
-    }
-
-    @NotNull
-    private ReentrantReadWriteLock getUserLock(@NotNull UserInfo userInfo, boolean createOnMissing)
-            throws AzureCmdException {
-        Lock lock = createOnMissing ? userMapLock.writeLock() : userMapLock.readLock();
-        lock.lock();
-
-        try {
-            if (!lockByUser.containsKey(userInfo)) {
-                if (createOnMissing) {
-                    lockByUser.put(userInfo, new ReentrantReadWriteLock(false));
-                } else {
-                    throw new AzureCmdException("No access token for the specified User Information");
-                }
-            }
-
-            return lockByUser.get(userInfo);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    @NotNull
-    private Optional<ReentrantReadWriteLock> getUserLock(@NotNull UserInfo userInfo) {
-        userMapLock.readLock().lock();
-
-        try {
-            if (lockByUser.containsKey(userInfo)) {
-                return Optional.of(lockByUser.get(userInfo));
-            } else {
-                return Optional.absent();
-            }
-        } finally {
-            userMapLock.readLock().unlock();
-        }
-    }
-
-    @NotNull
-    private String executeGetRequest(@NotNull String subscriptionId, @NotNull String path)
-            throws AzureCmdException {
-        return executeRequest(subscriptionId, path, ContentType.Json, "GET", null);
-    }
-
-    @NotNull
-    private String executeRequest(@NotNull String subscriptionId,
-                                  @NotNull final String path,
-                                  @NotNull final ContentType contentType,
-                                  @NotNull final String method,
-                                  @Nullable final String postData)
-            throws AzureCmdException {
-        Subscription subscription = getSubscription(subscriptionId);
-
-        Optional<SSLSocketFactory> optionalSSLSocketFactory = getSSLSocketFactory(subscriptionId);
-
-        if (optionalSSLSocketFactory.isPresent()) {
-            SSLSocketFactory sslSocketFactory = optionalSSLSocketFactory.get();
-            return AzureCertificateHelper.executeRequest(subscription.getServiceManagementUrl(), path, contentType,
-                    method, postData, sslSocketFactory, MobileServiceRestManager.getManager());
-        } else {
-            final PluginSettings settings = DefaultLoader.getPluginComponent().getSettings();
-            final String managementUri = settings.getAzureServiceManagementUri();
-            final UserInfo userInfo = getUserInfo(subscriptionId);
-            return requestWithToken(userInfo, new RequestCallback<String>() {
-                @Override
-                public String execute()
-                        throws Throwable {
-                    String accessToken = getAccessToken(userInfo);
-                    return AzureAADHelper.executeRequest(managementUri, path, contentType,
-                            method, postData, accessToken, MobileServiceRestManager.getManager());
-                }
-            });
-        }
-    }
-
-    @NotNull
-    private String executePollRequest(@NotNull String subscriptionId,
-                                      @NotNull final String path,
-                                      @NotNull final ContentType contentType,
-                                      @NotNull final String method,
-                                      @Nullable final String postData,
-                                      @NotNull final String pollPath)
-            throws AzureCmdException {
-        Subscription subscription = getSubscription(subscriptionId);
-
-        Optional<SSLSocketFactory> optionalSSLSocketFactory = getSSLSocketFactory(subscriptionId);
-
-        if (optionalSSLSocketFactory.isPresent()) {
-            SSLSocketFactory sslSocketFactory = optionalSSLSocketFactory.get();
-            return AzureCertificateHelper.executePollRequest(subscription.getServiceManagementUrl(), path, contentType,
-                    method, postData, pollPath, sslSocketFactory, MobileServiceRestManager.getManager());
-        } else {
-            final PluginSettings settings = DefaultLoader.getPluginComponent().getSettings();
-            final String managementUri = settings.getAzureServiceManagementUri();
-            final UserInfo userInfo = getUserInfo(subscriptionId);
-            return requestWithToken(userInfo, new RequestCallback<String>() {
-                @Override
-                public String execute()
-                        throws Throwable {
-                    String accessToken = getAccessToken(userInfo);
-                    return AzureAADHelper.executePollRequest(managementUri, path, contentType,
-                            method, postData, pollPath, accessToken, MobileServiceRestManager.getManager());
-                }
-            });
         }
     }
 
@@ -2537,6 +1370,28 @@ public class AzureManagerImpl implements AzureManager {
             }
         });
     }
+    
+    @NotNull
+    private <T> T requestApplicationInsightsSDK(@NotNull final String subscriptionId,
+                                       @NotNull final SDKRequestCallback<T, ApplicationInsightsManagementClient> requestCallback)
+            throws AzureCmdException {
+        return requestAzureSDK(subscriptionId, requestCallback, new AzureSDKClientProvider<ApplicationInsightsManagementClient>() {
+            @NotNull
+            @Override
+            public ApplicationInsightsManagementClient getSSLClient(@NotNull Subscription subscription)
+                    throws Throwable {
+            	// Application insights does not support publish settings file as authentication
+                return null;
+            }
+
+            @NotNull
+            @Override
+            public ApplicationInsightsManagementClient getAADClient(@NotNull String subscriptionId, @NotNull String accessToken)
+            		throws Throwable {
+                return AzureSDKHelper.getApplicationManagementClient(getUserInfo(subscriptionId).getTenantId(), accessToken);
+            }
+        });
+    }
 
     @NotNull
     private <T, V extends Closeable> T requestAzureSDK(@NotNull final String subscriptionId,
@@ -2620,7 +1475,7 @@ public class AzureManagerImpl implements AzureManager {
     }
 
     @NotNull
-    private <T> T requestWithToken(@NotNull final UserInfo userInfo, @NotNull final RequestCallback<T> requestCallback)
+    public <T> T requestWithToken(@NotNull final UserInfo userInfo, @NotNull final RequestCallback<T> requestCallback)
             throws AzureCmdException {
         PluginSettings settings = DefaultLoader.getPluginComponent().getSettings();
 
@@ -2629,14 +1484,12 @@ public class AzureManagerImpl implements AzureManager {
                     @NotNull
                     @Override
                     public T execute(@NotNull String accessToken) throws Throwable {
-                        if (!hasAccessToken(userInfo) ||
-                                !accessToken.equals(getAccessToken(userInfo))) {
+                        if (!hasAccessToken(userInfo) || !accessToken.equals(getAccessToken(userInfo))) {
                             ReentrantReadWriteLock userLock = getUserLock(userInfo, true);
                             userLock.writeLock().lock();
 
                             try {
-                                if (!hasAccessToken(userInfo) ||
-                                        !accessToken.equals(getAccessToken(userInfo))) {
+                                if (!hasAccessToken(userInfo) || !accessToken.equals(getAccessToken(userInfo))) {
                                     setAccessToken(userInfo, accessToken);
                                 }
                             } finally {
@@ -2666,9 +1519,37 @@ public class AzureManagerImpl implements AzureManager {
         }
     }
 
-
     @NotNull
     private static String getAbsolutePath(@NotNull String dir) {
         return "/" + dir.trim().replace('\\', '/').replaceAll("^/+", "").replaceAll("/+$", "");
+    }
+    
+    @Override
+    public List<Resource> getApplicationInsightsResources(@NotNull String subscriptionId) throws AzureCmdException {
+    	return requestApplicationInsightsSDK(subscriptionId, AzureSDKHelper.getApplicationInsightsResources(subscriptionId));
+    }
+    
+    @Override
+    public List<String> getLocationsForApplicationInsights(@NotNull String subscriptionId) throws AzureCmdException {
+    	return requestApplicationInsightsSDK(subscriptionId, AzureSDKHelper.getLocationsForApplicationInsights());
+    }
+    
+    @Override
+    public Resource createApplicationInsightsResource(@NotNull String subscriptionId,
+    		@NotNull String resourceGroupName,
+    		@NotNull String resourceName,
+    		@NotNull String location) throws AzureCmdException {
+    	return requestApplicationInsightsSDK(subscriptionId, AzureSDKHelper.createApplicationInsightsResource(subscriptionId,
+    			resourceGroupName, resourceName, location));
+    }
+    
+    @NotNull
+    @Override
+    public Void enableWebSockets(@NotNull String subscriptionId,
+    		@NotNull String webSpaceName,
+    		@NotNull String webSiteName,
+    		@NotNull String location,
+    		@NotNull boolean enableSocket) throws AzureCmdException {
+    	return requestWebSiteSDK(subscriptionId, AzureSDKHelper.enableWebSockets(webSpaceName, webSiteName, location, enableSocket));
     }
 }

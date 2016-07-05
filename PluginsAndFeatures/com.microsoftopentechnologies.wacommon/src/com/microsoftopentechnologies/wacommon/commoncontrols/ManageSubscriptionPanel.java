@@ -61,6 +61,7 @@ import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
 import com.microsoft.tooling.msservices.model.Subscription;
 import com.microsoft.tooling.msservices.model.ws.WebSite;
 import com.microsoft.tooling.msservices.model.ws.WebSiteConfiguration;
+import com.microsoft.wacommon.applicationinsights.ApplicationInsightsResourceRegistryEclipse;
 import com.microsoftopentechnologies.azurecommons.deploy.util.PublishData;
 import com.microsoftopentechnologies.azurecommons.deploy.util.PublishProfile;
 import com.microsoftopentechnologies.azurecommons.exception.RestAPIException;
@@ -113,36 +114,51 @@ public class ManageSubscriptionPanel extends Composite {
 						public void run(){
 							try {
 								List<Subscription> oldSubList = AzureManagerImpl.getManager().getFullSubscriptionList();
-								AzureManager apiManager = AzureManagerImpl.getManager();
+								final AzureManager apiManager = AzureManagerImpl.getManager();
 								apiManager.clearImportedPublishSettingsFiles();
 								apiManager.authenticate();
 
 								loadList();
 								WizardCacheManager.clearSubscriptions();
-								List<Subscription> subscriptions = apiManager.getSubscriptionList();
+								final List<Subscription> subscriptions = apiManager.getSubscriptionList();
 								PublishData pd  = new PublishData();
 								PublishProfile publishProfile = new PublishProfile();
 								pd.setPublishProfile(publishProfile);
-								Map<WebSite, WebSiteConfiguration> webSiteConfigMap = new HashMap<WebSite, WebSiteConfiguration>();
-								for (Subscription subscription : subscriptions) {
-									com.microsoftopentechnologies.azuremanagementutil.model.Subscription profileSubscription =
-											new com.microsoftopentechnologies.azuremanagementutil.model.Subscription();
-									profileSubscription.setSubscriptionID(subscription.getId());
-									profileSubscription.setSubscriptionName(subscription.getName());
-									publishProfile.getSubscriptions().add(profileSubscription);
-									List<String> resList = apiManager.getResourceGroupNames(subscription.getId());
-									for (String res : resList) {
-										List<WebSite> webList = apiManager.getWebSites(subscription.getId(), res);
-										for (WebSite webSite : webList) {
-											WebSiteConfiguration webSiteConfiguration = apiManager.
-													getWebSiteConfiguration(webSite.getSubscriptionId(),
-															webSite.getWebSpaceName(), webSite.getName());
-											webSiteConfigMap.put(webSite, webSiteConfiguration);
-										}
-									}
-								}
-								PreferenceWebAppUtil.save(webSiteConfigMap);
-								PreferenceWebAppUtil.setLoaded(true);
+                                for (Subscription subscription : subscriptions) {
+                                    com.microsoftopentechnologies.azuremanagementutil.model.Subscription profileSubscription =
+                                            new com.microsoftopentechnologies.azuremanagementutil.model.Subscription();
+                                    profileSubscription.setSubscriptionID(subscription.getId());
+                                    profileSubscription.setSubscriptionName(subscription.getName());
+                                    publishProfile.getSubscriptions().add(profileSubscription);
+                                }
+								
+								DefaultLoader.getIdeHelper().runInBackground(null, "Caching webapps information", true,
+										true, "Caching webapps information...", new Runnable() {
+											@Override
+											public void run() {
+												try {
+													Map<WebSite, WebSiteConfiguration> webSiteConfigMap = new HashMap<WebSite, WebSiteConfiguration>();
+													for (Subscription subscription : subscriptions) {
+														List<String> resList = apiManager.getResourceGroupNames(subscription.getId());
+														for (String res : resList) {
+															List<WebSite> webList = apiManager.getWebSites(subscription.getId(), res);
+															for (WebSite webSite : webList) {
+																WebSiteConfiguration webSiteConfiguration = apiManager.getWebSiteConfiguration(
+																				webSite.getSubscriptionId(),
+																				webSite.getWebSpaceName(),
+																				webSite.getName());
+																webSiteConfigMap.put(webSite, webSiteConfiguration);
+															}
+														}
+													}
+													ApplicationInsightsResourceRegistryEclipse.updateApplicationInsightsResourceRegistry(subscriptions);
+													PreferenceWebAppUtil.save(webSiteConfigMap);
+													PreferenceWebAppUtil.setLoaded(true);
+												} catch (Exception ex) {
+													PluginUtil.displayErrorDialogWithAzureMsg(PluginUtil.getParentShell(), Messages.error, "Error caching webapps", ex);
+												}
+											}
+										});			
 								pd.setCurrentSubscription(publishProfile.getSubscriptions().get(0));
 								try {
 									WizardCacheManager.cachePublishData(null, pd, null);
@@ -153,7 +169,7 @@ public class ManageSubscriptionPanel extends Composite {
 									Activator.getDefault().log(e1.getMessage(), e1);
 								}
 								PluginUtil.createSubscriptionTelemetryEvent(oldSubList, "Azure Explorer login");
-							} catch (AzureCmdException e1) {
+							} catch (Exception e1) {
 								PluginUtil.displayErrorDialogWithAzureMsg(PluginUtil.getParentShell(), Messages.error,
 										"An error occurred while attempting to sign in to your account.", e1);
 							}
@@ -188,6 +204,9 @@ public class ManageSubscriptionPanel extends Composite {
 						MethodUtils.handleFile(ImportSubscriptionDialog.getPubSetFilePath(), tableViewer);
 						PluginUtil.createSubscriptionTelemetryEvent(oldSubList, "Azure Explorer import publish settings");
 						loadList();
+						PreferenceWebAppUtil.save(new HashMap<WebSite, WebSiteConfiguration>());
+						PreferenceWebAppUtil.setLoaded(false);
+						ApplicationInsightsResourceRegistryEclipse.keeepManuallyAddedList();
 					} catch (Exception e) {
 						DefaultLoader.getUIHelper().showException("Error: " + e.getMessage(), e, "Error", false, true);
 						Activator.getDefault().log("Error: " + e.getMessage(), e);
@@ -272,7 +291,7 @@ public class ManageSubscriptionPanel extends Composite {
 					subscriptionList = AzureManagerImpl.getManager().getFullSubscriptionList();
 					if (subscriptionList != null && subscriptionList.size() > 0) {
 						tableViewer.setInput(getTableContent());
-						if (myDialog.needBtnPubSetFile) {
+						if (myDialog != null && myDialog.needBtnPubSetFile) {
 							removeButton.setEnabled(true);
 						}
 					} else {
@@ -404,7 +423,7 @@ public class ManageSubscriptionPanel extends Composite {
 
 			@Override
 			public void widgetSelected(SelectionEvent event) {
-				if (myDialog.needBtnPubSetFile) {
+				if (myDialog != null && myDialog.needBtnPubSetFile) {
 					removeButton.setEnabled(true);
 				}
 			}
@@ -452,6 +471,7 @@ public class ManageSubscriptionPanel extends Composite {
 			refreshSignInCaption();
 			PreferenceWebAppUtil.save(new HashMap<WebSite, WebSiteConfiguration>());
 			PreferenceWebAppUtil.setLoaded(false);
+			ApplicationInsightsResourceRegistryEclipse.keeepManuallyAddedList();
 		}
 	}
 

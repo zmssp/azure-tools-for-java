@@ -34,6 +34,7 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.ui.ValidationInfo;
 import com.microsoft.intellij.AzurePlugin;
 import com.microsoft.intellij.AzureSettings;
+import com.microsoft.intellij.helpers.IDEHelperImpl;
 import com.microsoft.intellij.ui.components.DefaultDialogWrapper;
 import com.microsoft.intellij.util.AppInsightsCustomEvent;
 import com.microsoft.intellij.util.PluginUtil;
@@ -125,11 +126,12 @@ public class WebSiteDeployForm extends DialogWrapper {
             int choice = Messages.showOkCancelDialog(String.format(message("delMsg"), name), message("delTtl"), Messages.getQuestionIcon());
             if (choice == Messages.OK) {
                 try {
-                    AzureManagerImpl.getManager().deleteWebSite(selectedWebSite.getSubscriptionId(),
+                    AzureManagerImpl.getManager(project).deleteWebSite(selectedWebSite.getSubscriptionId(),
                             selectedWebSite.getWebSpaceName(), name);
                     webSiteList.remove(webSiteJList.getSelectedIndex());
                     webSiteConfigMap.remove(selectedWebSite);
-                    AzureSettings.getSafeInstance(AzurePlugin.project).saveWebApps(webSiteConfigMap);
+                    AzureSettings.getSafeInstance(project).getWebsiteDebugPrep().remove(selectedWebSite.getName());
+                    AzureSettings.getSafeInstance(project).saveWebApps(webSiteConfigMap);
                     selectedWebSite = null;
                     if (webSiteConfigMap.isEmpty()) {
                         setMessages("There are no Azure web apps in the imported subscriptions.");
@@ -177,10 +179,10 @@ public class WebSiteDeployForm extends DialogWrapper {
                 project.getBasePath() == null ? "" : project.getBasePath());
         WebSite webSite = this.selectedWebSite;
 
-        AzureManager manager = AzureManagerImpl.getManager();
+        AzureManager manager = AzureManagerImpl.getManager(project);
         ArtifactDescriptor artifactDescriptor = manager.getWebArchiveArtifact(projectDescriptor);
         if (artifactDescriptor != null && webSite != null) {
-            manager.deployWebArchiveArtifact(projectDescriptor, artifactDescriptor, webSite, chkBoxDeployRoot.isSelected());
+            manager.deployWebArchiveArtifact(projectDescriptor, artifactDescriptor, webSite, chkBoxDeployRoot.isSelected(), manager);
             WebSitePublishSettings webSitePublishSettings = manager.
                     getWebSitePublishSettings(webSite.getSubscriptionId(), webSite.getWebSpaceName(), webSite.getName());
             WebSitePublishSettings.PublishProfile profile = webSitePublishSettings.getPublishProfileList().get(0);
@@ -215,7 +217,7 @@ public class WebSiteDeployForm extends DialogWrapper {
 
         try {
             fillListTaskHandle = DefaultLoader.getIdeHelper().runInBackground(projectDescriptor, "Retrieving web apps info...", null, new CancellableTask() {
-                final AzureManager manager = AzureManagerImpl.getManager();
+                final AzureManager manager = AzureManagerImpl.getManager(project);
                 final Object lock = new Object();
 
                 CancellationHandle cancellationHandle;
@@ -249,6 +251,7 @@ public class WebSiteDeployForm extends DialogWrapper {
 
                             try {
                                 Futures.allAsList(subscriptionFutures).get();
+                                AzureSettings.getSafeInstance(project).setwebAppLoaded(true);
                             } catch (InterruptedException e) {
                                 throw new AzureCmdException(e.getMessage(), e);
                             } catch (ExecutionException e) {
@@ -294,8 +297,8 @@ public class WebSiteDeployForm extends DialogWrapper {
                 private void loadWebSiteConfigurations(final Subscription subscription,
                                                        final SettableFuture<Void> subscriptionFuture) {
                     try {
-                        if (AzureSettings.getSafeInstance(AzurePlugin.project).iswebAppLoaded()) {
-                            webSiteConfigMap = AzureSettings.getSafeInstance(AzurePlugin.project).loadWebApps();
+                        if (AzureSettings.getSafeInstance(project).iswebAppLoaded()) {
+                            webSiteConfigMap = AzureSettings.getSafeInstance(project).loadWebApps();
                             subscriptionFuture.set(null);
                         } else {
                             List<ListenableFuture<Void>> webSpaceFutures = new ArrayList<ListenableFuture<Void>>();
@@ -370,17 +373,17 @@ public class WebSiteDeployForm extends DialogWrapper {
                                                        final SettableFuture<Void> webSiteFuture) {
                     WebSiteConfiguration webSiteConfiguration;
                     try {
-                        webSiteConfiguration = AzureManagerImpl.getManager().
+                        webSiteConfiguration = AzureManagerImpl.getManager(project).
                                 getWebSiteConfiguration(webSite.getSubscriptionId(),
                                         webSite.getWebSpaceName(), webSite.getName());
                     } catch (Throwable ignore) {
+                        AzurePlugin.log("!!! Exception: " + ignore.getMessage());
                         webSiteConfiguration = new WebSiteConfiguration(webSpace, webSite.getName(),
                                 subscription.getId());
                     }
                     synchronized (lock) {
                         webSiteConfigMap.put(webSite, webSiteConfiguration);
-                        AzureSettings.getSafeInstance(AzurePlugin.project).saveWebApps(webSiteConfigMap);
-                        AzureSettings.getSafeInstance(AzurePlugin.project).setwebAppLoaded(true);
+                        AzureSettings.getSafeInstance(project).saveWebApps(webSiteConfigMap);
                     }
                     webSiteFuture.set(null);
                 }
@@ -524,7 +527,7 @@ public class WebSiteDeployForm extends DialogWrapper {
     }
 
     private void editSubscriptions(boolean invokeSignIn) {
-        try {
+//        try {
             final ManageSubscriptionPanel manageSubscriptionPanel = new ManageSubscriptionPanel(project, false);
             final DefaultDialogWrapper subscriptionsDialog = new DefaultDialogWrapper(project, manageSubscriptionPanel) {
                 @Nullable
@@ -544,17 +547,17 @@ public class WebSiteDeployForm extends DialogWrapper {
             }
             subscriptionsDialog.show();
 
-            subscriptionList = AzureManagerImpl.getManager().getSubscriptionList();
+            subscriptionList = AzureManagerImpl.getManager(project).getSubscriptionList();
             if (subscriptionList.size() == 0) {
                 setMessages("Please sign in to import your Azure subscriptions. The credentials in a publish settings file are not sufficient for the web app functionality.");
                 selectedWebSite = null;
             } else {
                 fillList();
             }
-        } catch (AzureCmdException e) {
-            setMessages("There has been an error while retrieving the configured Azure subscriptions.",
-                    "Please retry signing in/importing your Azure subscriptions.");
-        }
+//        } catch (AzureCmdException e) {
+//            setMessages("There has been an error while retrieving the configured Azure subscriptions.",
+//                    "Please retry signing in/importing your Azure subscriptions.");
+//        }
     }
 
     public WebSite getSelectedWebSite() {

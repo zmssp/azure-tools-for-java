@@ -29,8 +29,9 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.ui.IStartup;
 import org.w3c.dom.Document;
 
+import com.interopbridges.tools.windowsazure.ParserXMLUtility;
+import com.microsoft.tooling.msservices.helpers.StringHelper;
 import com.microsoftopentechnologies.azurecommons.xmlhandling.DataOperations;
-import com.microsoftopentechnologies.azurecommons.xmlhandling.ParseXMLUtilMethods;
 import com.microsoftopentechnologies.wacommon.Activator;
 import com.microsoftopentechnologies.wacommon.telemetry.AppInsightsCustomEvent;
 import com.microsoftopentechnologies.wacommon.utils.FileUtil;
@@ -93,14 +94,16 @@ public class WACPStartUp implements IStartup {
 							// Case of normal eclipse restart
 							// check preference-value & installation-id exists or not else copy values
 							String prefValue = DataOperations.getProperty(dataFile, Messages.prefVal);
+							String hdinsightPrefValue = DataOperations.getProperty(dataFile, Messages.hdinshgtPrefVal);
 							String instID = DataOperations.getProperty(dataFile, Messages.instID);
-							if (prefValue == null || prefValue.isEmpty()) {
-								setValues(dataFile);
+							
+							if (StringHelper.isNullOrWhiteSpace(prefValue) || StringHelper.isNullOrWhiteSpace(hdinsightPrefValue)) {
+								setValues(dataFile, StringHelper.isNullOrWhiteSpace(prefValue), StringHelper.isNullOrWhiteSpace(hdinsightPrefValue));
 							} else if (instID == null || instID.isEmpty()) {
-								Document doc = ParseXMLUtilMethods.parseFile(dataFile);
+								Document doc = ParserXMLUtility.parseXMLFile(dataFile);
 								DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
 								DataOperations.updatePropertyValue(doc, Messages.instID, dateFormat.format(new Date()));
-								ParseXMLUtilMethods.saveXMLDocument(dataFile, doc);
+								ParserXMLUtility.saveXMLFile(dataFile, doc);
 							}
 						} else {
 							// proceed with setValues method. Case of new plugin installation
@@ -121,28 +124,44 @@ public class WACPStartUp implements IStartup {
 			Activator.getDefault().log(ex.getMessage(), ex);
 		}
 	}
-
+	
+	private void setValues(final String dateFile) throws Exception {
+		setValues(dateFile, true, true);
+	}
+	
 	/**
 	 * Method updates or creates property elements in data.xml
 	 * @param dataFile
 	 * @throws Exception
 	 */
-	private void setValues(final String dataFile) throws Exception {
-		final Document doc = ParseXMLUtilMethods.parseFile(dataFile);
+	private void setValues(final String dataFile, final boolean isAzureToolKit, final boolean isHDInsight) throws Exception {
+		final Document doc = ParserXMLUtility.parseXMLFile(dataFile);
 		Display.getDefault().syncExec(new Runnable() {
 			public void run() {
-				boolean accepted = false;
-				AcceptLicenseDlg dlg = new AcceptLicenseDlg(Display.getDefault().getActiveShell());
-				if (dlg.open() == Window.OK) {
-					accepted = true;
+				if(isAzureToolKit) {
+					boolean accepted = false;
+					AcceptLicenseDlg dlg = new AcceptLicenseDlg(Display.getDefault().getActiveShell());
+					if (dlg.open() == Window.OK) {
+						accepted = true;
+					}
+					DataOperations.updatePropertyValue(doc, Messages.prefVal, String.valueOf(accepted));
 				}
-				DataOperations.updatePropertyValue(doc, Messages.prefVal, String.valueOf(accepted));
+
+				if(isHDInsight && !Activator.getDefault().isHDInsightEnabled()) {
+					boolean isShowHDInsightTips = true;
+					HDInsightHelpDlg hdInsightHelpDlg = new HDInsightHelpDlg(Display.getDefault().getActiveShell());
+					if(hdInsightHelpDlg.open() == Window.CANCEL && !hdInsightHelpDlg.isShowTipsStatus()) {
+						isShowHDInsightTips = false;
+						DataOperations.updatePropertyValue(doc, Messages.hdinshgtPrefVal, String.valueOf(isShowHDInsightTips));
+					}
+				}
 			}});
+		
 		DataOperations.updatePropertyValue(doc, Messages.version,
 				Activator.getDefault().getBundle().getVersion().toString());
 		DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
 		DataOperations.updatePropertyValue(doc, Messages.instID, dateFormat.format(new Date()));
-		ParseXMLUtilMethods.saveXMLDocument(dataFile, doc);
+		ParserXMLUtility.saveXMLFile(dataFile, doc);
 		String prefVal = DataOperations.getProperty(dataFile, Messages.prefVal);
 		if (prefVal != null && !prefVal.isEmpty() && prefVal.equals("true")) {
 			AppInsightsCustomEvent.create(Messages.telAgrEvtName, "");

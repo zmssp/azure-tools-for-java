@@ -21,6 +21,7 @@
  */
 package com.microsoft.intellij.wizards.createvm;
 
+import com.intellij.openapi.project.Project;
 import com.intellij.ui.wizard.WizardNavigationState;
 import com.intellij.ui.wizard.WizardStep;
 import com.microsoft.intellij.forms.ManageSubscriptionPanel;
@@ -50,11 +51,13 @@ public class SubscriptionStep extends WizardStep<CreateVMWizardModel> {
     private JButton buttonLogin;
     private JComboBox subscriptionComboBox;
     private JLabel userInfoLabel;
+    private Project project;
 
-    public SubscriptionStep(final CreateVMWizardModel model) {
+    public SubscriptionStep(final CreateVMWizardModel model, Project project) {
         super("Choose a Subscription", null, null);
 
         this.model = model;
+        this.project = project;
 
         model.configStepList(createVmStepsList, 0);
 
@@ -100,8 +103,8 @@ public class SubscriptionStep extends WizardStep<CreateVMWizardModel> {
     }
 
     private void loadSubscriptions() {
-        try {
-            AzureManager manager = AzureManagerImpl.getManager();
+//        try {
+            AzureManager manager = AzureManagerImpl.getManager(project);
 
             if (manager.authenticated()) {
                 String upn = manager.getUserInfo().getUniqueName();
@@ -120,9 +123,9 @@ public class SubscriptionStep extends WizardStep<CreateVMWizardModel> {
             }
 
             model.getCurrentNavigationState().NEXT.setEnabled(!subscriptions.isEmpty());
-        } catch (AzureCmdException e) {
-            String msg = "An error occurred while attempting to load the subscriptions list." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
-            PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
-        }
+//        } catch (AzureCmdException e) {
+//            String msg = "An error occurred while attempting to load the subscriptions list." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
+//            PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
+//        }
     }
 }

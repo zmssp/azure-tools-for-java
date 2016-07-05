@@ -35,6 +35,7 @@ import com.microsoft.intellij.AzureSettings;
 import com.microsoft.intellij.forms.ErrorMessageForm;
 import com.microsoft.intellij.forms.OpenSSLFinderForm;
 import com.microsoft.intellij.helpers.storage.*;
+import com.microsoft.intellij.util.PluginUtil;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.helpers.NotNull;
 import com.microsoft.tooling.msservices.helpers.Nullable;
@@ -98,6 +99,11 @@ public class UIHelperImpl implements UIHelper {
                 options,
                 defaultOption);
         return (optionDialog == JOptionPane.YES_OPTION);
+    }
+
+    @Override
+    public void logError(String message, Throwable ex) {
+        AzurePlugin.log(message, ex);
     }
 
     /**
@@ -246,7 +252,7 @@ public class UIHelperImpl implements UIHelper {
         openSSLFinderForm.setModal(true);
         openSSLFinderForm.show();
 
-        return DefaultLoader.getIdeHelper().getProperty("MSOpenSSLPath", "");
+        return DefaultLoader.getIdeHelper().getPropertyWithDefault("MSOpenSSLPath", "");
     }
 
     @Nullable
@@ -301,7 +307,7 @@ public class UIHelperImpl implements UIHelper {
 
             if (ex instanceof AzureCmdException) {
                 String errorLog = ((AzureCmdException) ex).getErrorLog();
-                if (errorLog != null) {
+                if (errorLog != null && !errorLog.isEmpty()) {
                     details = errorLog;
                 }
             }
@@ -324,8 +330,8 @@ public class UIHelperImpl implements UIHelper {
     }
 
     @Override
-    public void saveWebAppPreferences(Map<WebSite, WebSiteConfiguration> map) {
-        AzureSettings.getSafeInstance(AzurePlugin.project).saveWebApps(map);
-        AzureSettings.getSafeInstance(AzurePlugin.project).setwebAppLoaded(true);
+    public void saveWebAppPreferences(@NotNull Object projectObject, Map<WebSite, WebSiteConfiguration> map) {
+        AzureSettings.getSafeInstance((Project) projectObject).saveWebApps(map);
+        AzureSettings.getSafeInstance((Project) projectObject).setwebAppLoaded(true);
     }
 }

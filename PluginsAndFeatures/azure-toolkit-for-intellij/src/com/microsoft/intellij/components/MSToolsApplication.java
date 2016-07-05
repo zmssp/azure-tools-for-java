@@ -24,6 +24,9 @@ package com.microsoft.intellij.components;
 import com.google.gson.Gson;
 import com.intellij.openapi.components.AbstractProjectComponent;
 import com.intellij.openapi.project.Project;
+import com.microsoft.azure.hdinsight.common.HDInsightHelperImpl;
+import com.microsoft.azure.hdinsight.common.HDInsightLoader;
+import com.microsoft.intellij.common.CommonConst;
 import com.microsoft.intellij.helpers.IDEHelperImpl;
 import com.microsoft.intellij.helpers.UIHelperImpl;
 import com.microsoft.intellij.serviceexplorer.NodeActionsMap;
@@ -32,7 +35,6 @@ import com.microsoft.tooling.msservices.components.AppSettingsNames;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.components.PluginComponent;
 import com.microsoft.tooling.msservices.components.PluginSettings;
-import com.microsoft.tooling.msservices.helpers.IDEHelper;
 import com.microsoft.tooling.msservices.helpers.StringHelper;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import org.jetbrains.annotations.NotNull;
@@ -43,20 +45,9 @@ import java.io.InputStreamReader;
 
 import static com.microsoft.intellij.ui.messages.AzureBundle.message;
 
-public class MSToolsApplication extends AbstractProjectComponent implements PluginComponent {
-
-    private static MSToolsApplication current = null;
-    private PluginSettings settings;
-
-    // TODO: This needs to be the plugin ID from plugin.xml somehow.
-    public static final String PLUGIN_ID = "com.microsoft.intellij";
-
+public class MSToolsApplication extends AbstractProjectComponent {
     protected MSToolsApplication(Project project) {
         super(project);
-    }
-
-    public static MSToolsApplication getCurrent() {
-        return current;
     }
 
     @Override
@@ -67,61 +58,10 @@ public class MSToolsApplication extends AbstractProjectComponent implements Plug
 
     @Override
     public void initComponent() {
-        // save the object instance
-        current = this;
-
-        DefaultLoader.setPluginComponent(this);
-        DefaultLoader.setUiHelper(new UIHelperImpl());
-        DefaultLoader.setIdeHelper(new IDEHelperImpl(myProject));
-        Node.setNode2Actions(NodeActionsMap.node2Actions);
-
-        // load up the plugin settings
-        try {
-            loadPluginSettings();
-        } catch (IOException e) {
-            PluginUtil.displayErrorDialogAndLog(message("errTtl"), "An error occurred while attempting to load settings", e);
-        }
-
-        cleanTempData(DefaultLoader.getIdeHelper());
-
+        cleanTempData();
     }
 
-    @Override
-    public PluginSettings getSettings() {
-        return settings;
-    }
-
-    @Override
-    public String getPluginId() {
-        return PLUGIN_ID;
-    }
-
-    private void loadPluginSettings() throws IOException {
-        BufferedReader reader = null;
-        try {
-            reader = new BufferedReader(
-                    new InputStreamReader(
-                            MSToolsApplication.class.getResourceAsStream("/settings.json")));
-            StringBuilder sb = new StringBuilder();
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                sb.append(line);
-            }
-
-            Gson gson = new Gson();
-            settings = gson.fromJson(sb.toString(), PluginSettings.class);
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException ignored) {
-                }
-            }
-        }
-    }
-
-    private void cleanTempData(IDEHelper ideHelper) {
+    private void cleanTempData() {
         // check the plugin version stored in the properties; if it
         // doesn't match with the current plugin version then we clear
         // all stored options
@@ -130,10 +70,10 @@ public class MSToolsApplication extends AbstractProjectComponent implements Plug
         // current subscriptions and iterate over that list to clear the auth tokens for those
         // subscriptions.
 
-        String currentPluginVersion = ideHelper.getProperty(AppSettingsNames.CURRENT_PLUGIN_VERSION);
+        String currentPluginVersion = DefaultLoader.getIdeHelper().getProperty(AppSettingsNames.CURRENT_PLUGIN_VERSION, myProject);
 
         if (StringHelper.isNullOrWhiteSpace(currentPluginVersion) ||
-                !getSettings().getPluginVersion().equals(currentPluginVersion)) {
+                !DefaultLoader.getPluginComponent().getSettings().getPluginVersion().equals(currentPluginVersion)) {
 
             String[] settings = new String[]{
                     AppSettingsNames.AAD_AUTHENTICATION_RESULTS,
@@ -144,12 +84,11 @@ public class MSToolsApplication extends AbstractProjectComponent implements Plug
             };
 
             for (String setting : settings) {
-                ideHelper.unsetProperty(setting);
+                DefaultLoader.getIdeHelper().unsetProperty(setting, myProject);
             }
         }
 
         // save the current plugin version
-        ideHelper.setProperty(AppSettingsNames.CURRENT_PLUGIN_VERSION, getSettings().getPluginVersion());
+        DefaultLoader.getIdeHelper().setProperty(AppSettingsNames.CURRENT_PLUGIN_VERSION, DefaultLoader.getPluginComponent().getSettings().getPluginVersion(), myProject);
     }
-
 }

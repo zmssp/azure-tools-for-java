@@ -113,8 +113,9 @@ public abstract class RestServiceManagerBaseImpl implements RestServiceManager {
             conn.addRequestProperty(TELEMETRY_HEADER, getPlatformUserAgent());
             conn.addRequestProperty(X_MS_VERSION_HEADER, AZURE_API_VERSION);
             conn.addRequestProperty(ACCEPT_HEADER, "");
-            conn.addRequestProperty(CONTENT_TYPE_HEADER, contentType.toString());
-
+            if (contentType != null) {
+                conn.addRequestProperty(CONTENT_TYPE_HEADER, contentType.toString());
+            }
             return conn;
         } catch (IOException e) {
             throw new AzureCmdException(e.getMessage(), e);
@@ -152,7 +153,7 @@ public abstract class RestServiceManagerBaseImpl implements RestServiceManager {
         String version = DefaultLoader.getPluginComponent().getSettings().getPluginVersion();
         return String.format(
                 "%s/%s (lang=%s; os=%s; version=%s)",
-                DefaultLoader.PLUGIN_ID,
+                DefaultLoader.getPluginComponent().getPluginId(),
                 version,
                 "Java",
                 System.getProperty("os.name"),
