@@ -14,7 +14,7 @@ import com.microsoftopentechnologies.azurecommons.xmlhandling.DataOperations;
 
 
 public class AppInsightsCustomEvent {
-    static String key = "";
+    static String key = "9ee9694d-128e-4c2b-903f-dbe694548bf0";
     static String dataFile = PluginHelper.getTemplateFile(AzureBundle.message("dataFileName"));
 
     /**
@@ -27,7 +27,7 @@ public class AppInsightsCustomEvent {
     public static void create(String eventName, String version,@Nullable Map<String, String> myProperties) {
         if (new File(dataFile).exists()) {
             String prefValue = DataOperations.getProperty(dataFile, AzureBundle.message("prefVal"));
-            if (prefValue != null && !prefValue.isEmpty() && prefValue.equalsIgnoreCase("true")) {
+            if (prefValue == null || prefValue.isEmpty() || prefValue.equalsIgnoreCase("true")) {
                 TelemetryClient telemetry = new TelemetryClient();
                 telemetry.getContext().setInstrumentationKey(key);
                 Map<String, String> properties = myProperties == null ? new HashMap<String, String>() : new HashMap<String, String>(myProperties);

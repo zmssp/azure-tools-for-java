@@ -25,6 +25,12 @@ import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
 
+import com.microsoft.azure.hdinsight.util.HDInsightJobViewUtils;
+import com.microsoft.azure.hdinsight.util.Messages;
+import com.microsoft.tooling.msservices.components.DefaultLoader;
+import com.microsoft.tooling.msservices.helpers.StringHelper;
+import com.microsoftopentechnologies.wacommon.telemetry.AppInsightsCustomEvent;
+
 /**
  * The activator class controls the plug-in life cycle
  */
@@ -49,6 +55,12 @@ public class Activator extends AbstractUIPlugin {
 	public void start(BundleContext context) throws Exception {
 		super.start(context);
 		plugin = this;
+		String enabledProperty = DefaultLoader.getIdeHelper().getProperty(Messages.HDInsightFeatureEnabled);
+		if(StringHelper.isNullOrWhiteSpace(enabledProperty)) {
+			AppInsightsCustomEvent.create(Messages.HDInsightFeatureEnabled, context.getBundle().getVersion().toString());
+			DefaultLoader.getIdeHelper().setProperty(Messages.HDInsightFeatureEnabled, "true");
+		}
+		HDInsightJobViewUtils.checkInitlize();
 	}
 
 	/*
@@ -58,6 +70,7 @@ public class Activator extends AbstractUIPlugin {
 	public void stop(BundleContext context) throws Exception {
 		plugin = null;
 		super.stop(context);
+		HDInsightJobViewUtils.closeJobViewHttpServer();
 	}
 
 	/**

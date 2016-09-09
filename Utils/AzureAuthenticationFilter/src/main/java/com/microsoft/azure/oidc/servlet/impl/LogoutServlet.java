@@ -41,27 +41,18 @@ import org.slf4j.LoggerFactory;
 import com.microsoft.azure.oidc.application.settings.ApplicationSettings;
 import com.microsoft.azure.oidc.application.settings.ApplicationSettingsLoader;
 import com.microsoft.azure.oidc.application.settings.impl.SimpleApplicationSettingsLoader;
-import com.microsoft.azure.oidc.concurrent.cache.ConcurrentCacheService;
-import com.microsoft.azure.oidc.concurrent.cache.impl.SimpleConcurrentCacheService;
 import com.microsoft.azure.oidc.configuration.Configuration;
 import com.microsoft.azure.oidc.configuration.ConfigurationCache;
 import com.microsoft.azure.oidc.configuration.impl.SimpleConfigurationCache;
 import com.microsoft.azure.oidc.exception.GeneralException;
 import com.microsoft.azure.oidc.exception.PreconditionException;
-import com.microsoft.azure.oidc.token.Token;
-import com.microsoft.azure.oidc.token.TokenParser;
-import com.microsoft.azure.oidc.token.impl.SimpeTokenParser;
 
 @WebServlet(name = "logout", urlPatterns = "/logout")
 public final class LogoutServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	private static final Logger LOGGER = LoggerFactory.getLogger(LogoutServlet.class);
 
-	private final TokenParser tokenParser = SimpeTokenParser.getInstance();
-
 	private final ConfigurationCache configurationCache = SimpleConfigurationCache.getInstance();
-
-	private final ConcurrentCacheService concurrentCacheService = SimpleConcurrentCacheService.getInstance();
 
 	private final ApplicationSettingsLoader applicationSettingsLoader = SimpleApplicationSettingsLoader.getInstance();
 
@@ -69,16 +60,6 @@ public final class LogoutServlet extends HttpServlet {
 	public void service(final HttpServletRequest request, final HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
-			// clear the cache if possible
-			for (Cookie cookie : request.getCookies()) {
-				if (cookie.getName().equals("id_token")) {
-					final Token token = tokenParser.getToken(cookie.getValue());
-					final String prefix = token.getUserID().getValue().concat(":");
-					final String prefixMax = prefix + Character.MAX_VALUE;
-					concurrentCacheService.getCache(Boolean.class, "roleCache").removeWithPrefix(prefix, prefixMax);
-				}
-			}
-
 			final Configuration configuration = configurationCache.load();
 			final ApplicationSettings applicationSettings = applicationSettingsLoader.load();
 

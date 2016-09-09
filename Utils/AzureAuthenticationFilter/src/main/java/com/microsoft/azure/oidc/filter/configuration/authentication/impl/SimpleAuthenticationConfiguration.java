@@ -31,18 +31,15 @@ import com.microsoft.azure.oidc.filter.configuration.authentication.Authenticati
 final class SimpleAuthenticationConfiguration implements AuthenticationConfiguration {
 	private List<String> exclusionUriPatternList;
 	private List<String> authorisationUriPatternList;
-	private List<String> serviceUriPatternList;
 	private Map<String, List<String>> authorisationRoleMap;
 
 	private List<Pattern> exclusionRegexPatternList;
 	private List<Pattern> authorisationRegexPatternList;
-	private List<Pattern> serviceRegexPatternList;
 
 	public SimpleAuthenticationConfiguration(final List<String> exclusionUriPatternList,
-			final List<String> authorisationUriPatternList, final List<String> serviceUriPatternList, final Map<String, List<String>> authorisationRoleMap) {
+			final List<String> authorisationUriPatternList, final Map<String, List<String>> authorisationRoleMap) {
 		setExclusionUriPatternList(exclusionUriPatternList);
 		setAuthorisationUriPatternList(authorisationUriPatternList);
-		setServiceUriPatternList(serviceUriPatternList);
 		setAuthorisationRoleMap(authorisationRoleMap);
 	}
 
@@ -90,27 +87,6 @@ final class SimpleAuthenticationConfiguration implements AuthenticationConfigura
 		}
 	}
 
-	private void setServiceUriPatternList(List<String> serviceUriPatternList) {
-		this.serviceUriPatternList = serviceUriPatternList;
-		serviceRegexPatternList = new ArrayList<Pattern>();
-		if (serviceUriPatternList == null) {
-			return;
-		}
-		for (final String pattern : serviceUriPatternList) {
-			final String localPattern = pattern.trim();
-			if (localPattern.endsWith("*")) {
-				serviceRegexPatternList.add(Pattern
-						.compile(localPattern.replaceAll("([^a-zA-Z0-9\\*])", "\\\\$1").replaceAll("\\*", "(\\.\\*)")));
-			} else if (localPattern.startsWith("/")) {
-				serviceRegexPatternList.add(Pattern.compile(
-						localPattern.replaceAll("([^a-zA-Z0-9\\*])", "\\\\$1").replaceAll("\\*", "(\\\\w\\*)")));
-			} else {
-				serviceRegexPatternList.add(Pattern
-						.compile(localPattern.replaceAll("([^a-zA-Z0-9\\*])", "\\\\$1").replaceAll("\\*", "(\\.\\*)")));
-			}
-		}
-	}
-
 	private void setAuthorisationRoleMap(Map<String, List<String>> authorisationRoleMap) {
 		this.authorisationRoleMap = authorisationRoleMap;
 	}
@@ -138,15 +114,5 @@ final class SimpleAuthenticationConfiguration implements AuthenticationConfigura
 	@Override
 	public Map<String, List<String>> getAuthorisationRoleMap() {
 		return authorisationRoleMap;
-	}
-
-	@Override
-	public List<String> getServiceUriPatternList() {
-		return serviceUriPatternList;
-	}
-
-	@Override
-	public List<Pattern> getServiceRegexPatternList() {
-		return serviceRegexPatternList;
 	}
 }

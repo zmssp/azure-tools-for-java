@@ -1,7 +1,7 @@
 <idea-plugin version="2">
   <id>com.microsoft.tooling.msservices.intellij.azure</id>
   <name>Azure Toolkit for IntelliJ</name>
-  <version>1.4</version>
+  <version>1.5</version>
   <vendor email="java@microsoft.com" url="http://www.microsoft.com">Microsoft</vendor>
 
   <description><![CDATA[
@@ -57,7 +57,7 @@
       <toolWindow
               anchor="left"
               factoryClass="com.microsoft.intellij.components.ServerExplorerToolWindowFactory"
-              id="Service Explorer"
+              id="Azure Explorer"
               canCloseContents="false"
               icon="/icons/azure_explorer.png"/>
 

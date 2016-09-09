@@ -41,7 +41,6 @@ public final class SimpleAuthenticationConfigurationParser implements Authentica
 	public AuthenticationConfiguration parse(final JsonNode node) {
 		final List<String> exclusionUriPatterns = new ArrayList<String>();
 		final List<String> authorisationUriPatterns = new ArrayList<String>();
-		final List<String> serviceUriPatterns = new ArrayList<String>();
 		final Map<String, List<String>> authorisationRoleMap = new HashMap<String, List<String>>();
 		for (final JsonNode exclusion : node.get("exclusionUriPatterns")) {
 			exclusionUriPatterns.add(exclusion.asText());
@@ -54,11 +53,8 @@ public final class SimpleAuthenticationConfigurationParser implements Authentica
 				authorisationRoleMap.get(patternString).add(role.asText());
 			}
 		}
-		for (final JsonNode exclusion : node.get("serviceUriPatterns")) {
-			serviceUriPatterns.add(exclusion.asText());
-		}
 		return authenticationConfigurationFactory.createAuthenticationConfiguration(exclusionUriPatterns,
-				authorisationUriPatterns, serviceUriPatterns, authorisationRoleMap);
+				authorisationUriPatterns, authorisationRoleMap);
 	}
 
 	public static AuthenticationConfigurationParser getInstance() {

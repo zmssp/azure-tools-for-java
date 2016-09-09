@@ -29,13 +29,11 @@ import com.microsoft.azure.oidc.filter.configuration.authentication.Authenticati
 
 public final class SimpleAuthenticationConfigurationFactory implements AuthenticationConfigurationFactory {
 	private static final AuthenticationConfigurationFactory INSTANCE = new SimpleAuthenticationConfigurationFactory();
-
+	
 	@Override
 	public AuthenticationConfiguration createAuthenticationConfiguration(final List<String> exclusionUriPatternList,
-			final List<String> authorisationUriPatternList, final List<String> serviceUriPatternList,
-			final Map<String, List<String>> authorisationRoleMap) {
-		return new SimpleAuthenticationConfiguration(exclusionUriPatternList, authorisationUriPatternList,
-				serviceUriPatternList, authorisationRoleMap);
+			final List<String> authorisationUriPatternList, final Map<String, List<String>> authorisationRoleMap) {
+		return new SimpleAuthenticationConfiguration(exclusionUriPatternList, authorisationUriPatternList, authorisationRoleMap);
 	}
 
 	public static AuthenticationConfigurationFactory getInstance() {

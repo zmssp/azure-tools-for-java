@@ -38,6 +38,7 @@ public final class Messages extends NLS {
 	public static String lnkOpenErrMsg;
 	public static String hdinsgihtPrefTil;
 	public static String hdinsightPerenceQueMsg;
+	public static String hdinsightJavaFxTipsMsg;
 	public static String encFileName;
 	public static String encFileEntry;
 	public static String version;
@@ -46,6 +47,9 @@ public final class Messages extends NLS {
 	public static String hdinshgtPrefVal;
 	public static String preferenceMsg;
 	public static String preferenceLinkMsg;
+	public static String cmpntFileName;
+	public static String oldCmpntFileEntry;
+	public static String cmpntFileEntry;
 	/* Common messages - end */
 	
     /* Base64 messages - start */
@@ -80,6 +84,8 @@ public final class Messages extends NLS {
 	public static String aiTxt;
 	public static String crtErrMsg;
 	public static String azExpMsg;
+	public static String telemetryDenyAction;
+	public static String telemetryAcceptAction;
 	
     static {
         // initialize resource bundle

@@ -43,14 +43,6 @@ You will also need to update your web.xml as follows:
   	<param-name>securityCacheSize</param-name>
   	<param-value>10000</param-value>
   </init-param>
-  <init-param>
-    <param-name>securityCacheTimeout</param-name>
-    <param-value>30</param-value>
-  </init-param>
-  <init-param>
-    <param-name>configurationCacheTimeout</param-name>
-    <param-value>60</param-value>
-  </init-param>
 </filter>
 <filter-mapping>
   <filter-name>authenticationFilter</filter-name>

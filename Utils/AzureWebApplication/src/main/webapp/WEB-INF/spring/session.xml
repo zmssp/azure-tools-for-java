@@ -8,6 +8,10 @@
 
 	<context:annotation-config />
 	<context:property-placeholder />
+	<context:component-scan base-package="com.microsoft.azure">
+		<context:exclude-filter type="regex"
+			expression="com\.microsoft\.azure\.oidc.*" />
+	</context:component-scan>
 
 	<util:constant
 		static-field="org.springframework.session.data.redis.config.ConfigureRedisAction.NO_OP" />

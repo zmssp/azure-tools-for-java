@@ -84,6 +84,17 @@ public final class Messages extends NLS {
 	public static String appComboLbl;
 	public static String commandSh;
 	public static String commandMac;
+	public static String cmpntFileName;
+	public static String dplSerBtnMsg;
+	public static String defaultJdk;
+	public static String thirdJdk;
+	public static String dplDlgSerBtn;
+	public static String customJdk;
+	public static String linkLblAcc;
+	public static String noURLMsg;
+	public static String customNote;
+	public static String updateBtn;
+	public static String editWebAppTtl;
 	
 	static {
 		// initialize resource bundle

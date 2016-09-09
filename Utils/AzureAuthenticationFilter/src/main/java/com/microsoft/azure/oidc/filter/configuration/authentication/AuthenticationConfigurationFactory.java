@@ -27,7 +27,6 @@ import java.util.Map;
 public interface AuthenticationConfigurationFactory {
 
 	AuthenticationConfiguration createAuthenticationConfiguration(List<String> exclusionUriPatternList,
-			List<String> authorisationUriPatternList, List<String> serviceUriPatternList,
-			Map<String, List<String>> authorisationRoleMap);
+			List<String> authorisationUriPatternList, Map<String, List<String>> authorisationRoleMap);
 
 }

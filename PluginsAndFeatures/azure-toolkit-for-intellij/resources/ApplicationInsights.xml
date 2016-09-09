@@ -5,7 +5,7 @@
 	Please do not modify below instrumentation key.
 	Use of this instrumentation key by any application other than Azure Toolkit for IntelliJ is strictly prohibited.
   -->
-  <InstrumentationKey></InstrumentationKey>
+  <InstrumentationKey>9ee9694d-128e-4c2b-903f-dbe694548bf0</InstrumentationKey>
   <ContextInitializers>
   </ContextInitializers>
   <TelemetryInitializers>

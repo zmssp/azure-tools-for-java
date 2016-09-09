@@ -34,7 +34,6 @@ import com.microsoft.tooling.msservices.helpers.StringHelper;
 import com.microsoft.tooling.msservices.serviceexplorer.*;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureRefreshableNode;
 
-import javax.swing.*;
 import java.awt.*;
 import java.net.URI;
 import java.util.UUID;
@@ -42,13 +41,8 @@ import java.util.UUID;
 public class ClusterNode extends AzureRefreshableNode {
     private static final String CLUSTER_MODULE_ID = ClusterNode.class.getName();
     private static final String ICON_PATH = CommonConst.ClusterIConPath;
-    private static boolean isHDInsightPlugin;
 
     private IClusterDetail clusterDetail;
-
-    static {
-        isHDInsightPlugin = ClusterNode.class.getClassLoader().toString().contains("intellij");
-    }
 
     public ClusterNode(Node parent, IClusterDetail clusterDetail) {
         super(CLUSTER_MODULE_ID, getClusterNameWitStatus(clusterDetail), parent, ICON_PATH, true);
@@ -107,8 +101,9 @@ public class ClusterNode extends AzureRefreshableNode {
             addAction("Unlink", new NodeActionListener() {
                 @Override
                 protected void actionPerformed(NodeActionEvent e) {
-                    int exitCode = JOptionPane.showConfirmDialog(null, "Do you really want to unlink the HDInsight cluster?", "Unlink HDInsight Cluster", JOptionPane.OK_CANCEL_OPTION);
-                    if(exitCode == JOptionPane.OK_OPTION) {
+                    boolean choice = DefaultLoader.getUIHelper().showConfirmation("Do you really want to unlink the HDInsight cluster?",
+                            "Unlink HDInsight Cluster", new String[]{"Yes", "No"}, null);
+                    if(choice) {
                         ClusterManagerEx.getInstance().removeHDInsightAdditionalCluster((HDInsightAdditionalClusterDetail)clusterDetail);
                         ((HDInsightRootModule) getParent()).refreshWithoutAsync();
                     }
@@ -122,15 +117,11 @@ public class ClusterNode extends AzureRefreshableNode {
             {
         removeAllChildNodes();
 
-        // disable JobView Node on Eclipse Plugin
-        if(isHDInsightPlugin) {
-            final String uuid = UUID.randomUUID().toString();
-            JobViewManager.registerJovViewNode(uuid, clusterDetail);
-            JobViewNode jobViewNode = new JobViewNode(this, uuid);
-            addChildNode(jobViewNode);
-        }
+        final String uuid = UUID.randomUUID().toString();
+        JobViewManager.registerJovViewNode(uuid, clusterDetail);
+        JobViewNode jobViewNode = new JobViewNode(this, uuid);
+        addChildNode(jobViewNode);
 
-        //TelemetryManager.postEvent(TelemetryCommon.HDInsightExplorerSparkNodeExpand, null, null);
         RefreshableNode storageAccountNode = new StorageAccountFolderNode(this, clusterDetail);
         addChildNode(storageAccountNode);
     }

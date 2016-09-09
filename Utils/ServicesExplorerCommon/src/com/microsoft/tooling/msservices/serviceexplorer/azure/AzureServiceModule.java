@@ -34,6 +34,7 @@ import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import com.microsoft.tooling.msservices.serviceexplorer.RefreshableNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.storage.StorageModule;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.vm.VMServiceModule;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.vmarm.VMArmServiceModule;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.webapps.WebappsModule;
 
 import java.util.List;
@@ -46,8 +47,9 @@ public class AzureServiceModule extends RefreshableNode {
 
     private Object project;
     private VMServiceModule vmServiceModule;
-//    private VMArmServiceModule vmArmServiceModule;
+    private VMArmServiceModule vmArmServiceModule;
     private StorageModule storageServiceModule;
+    private com.microsoft.tooling.msservices.serviceexplorer.azure.storagearm.StorageModule storageModule;
     private WebappsModule webappsModule;
     private HDInsightRootModule hdInsightModule;
     private boolean storageModuleOnly;
@@ -62,12 +64,13 @@ public class AzureServiceModule extends RefreshableNode {
         this.project = project;
         this.storageModuleOnly = storageModuleOnly;
         storageServiceModule = new StorageModule(this);
+        storageModule = new com.microsoft.tooling.msservices.serviceexplorer.azure.storagearm.StorageModule(this);
         webappsModule = new WebappsModule(this);
         //hdInsightModule = new HDInsightRootModule(this);
         if (!storageModuleOnly) {
             vmServiceModule = new VMServiceModule(this);
         }
-//        vmArmServiceModule = new VMArmServiceModule(this);
+        vmArmServiceModule = new VMArmServiceModule(this);
     }
 
     public AzureServiceModule(Node parent, String iconPath, Object data) {
@@ -110,13 +113,13 @@ public class AzureServiceModule extends RefreshableNode {
                 vmServiceModule.load();
             }
         }
-//
-//        if (!vmArmServiceModule.isLoading()) {
-//            if (!isDirectChild(vmArmServiceModule)) {
-//                addChildNode(vmArmServiceModule);
-//            }
-//            vmArmServiceModule.load();
-//        }
+
+        if (!vmArmServiceModule.isLoading()) {
+            if (!isDirectChild(vmArmServiceModule)) {
+                addChildNode(vmArmServiceModule);
+            }
+            vmArmServiceModule.load();
+        }
 
         if (!storageServiceModule.isLoading()) {
             if (!isDirectChild(storageServiceModule)) {
@@ -125,7 +128,12 @@ public class AzureServiceModule extends RefreshableNode {
 
             storageServiceModule.load();
         }
-
+        if (!storageModule.isLoading()) {
+            if (!isDirectChild(storageModule)) {
+                addChildNode(storageModule);
+            }
+            storageModule.load();
+        }
         if (!webappsModule.isLoading()) {
             if (!isDirectChild(webappsModule)) {
                 addChildNode(webappsModule);
@@ -174,7 +182,7 @@ public class AzureServiceModule extends RefreshableNode {
                                         if (!storageModuleOnly) {
                                             vmServiceModule = new VMServiceModule(AzureServiceModule.this);
                                         }
-//                                        vmArmServiceModule = new VMArmServiceModule(AzureServiceModule.this);
+                                        vmArmServiceModule = new VMArmServiceModule(AzureServiceModule.this);
                                         storageServiceModule = new StorageModule(AzureServiceModule.this);
                                         hdInsightModule = hdInsightModule.getNewNode(AzureServiceModule.this);
 

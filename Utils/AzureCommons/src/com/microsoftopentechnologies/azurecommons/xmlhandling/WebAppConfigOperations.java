@@ -1,5 +1,7 @@
 package com.microsoftopentechnologies.azurecommons.xmlhandling;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 
@@ -12,6 +14,7 @@ import org.w3c.dom.Element;
 
 import com.interopbridges.tools.windowsazure.ParserXMLUtility;
 import com.interopbridges.tools.windowsazure.WindowsAzureInvalidProjectOperationException;
+import com.microsoftopentechnologies.azurecommons.storageregistry.StorageRegistryUtilMethods;
 
 
 public class WebAppConfigOperations {
@@ -31,6 +34,8 @@ public class WebAppConfigOperations {
 	static String varExp = varsExp + "/" + variable + "[@name='%s']";
 	static String javaOptsString = "-Djava.net.preferIPv4Stack=true -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=127.0.0.1:%HTTP_PLATFORM_DEBUG_PORT%";
 	static String catalinaOpts = "-Dport.http=%HTTP_PLATFORM_PORT%";
+	static String appInitExp =  webServerExp + "/" + "applicationInitialization";
+	static String appInitAddExp = appInitExp + "/" + "add[@initializationPage='%s']";
 
 
 	public static void createTag(Document doc, String parentTag, String tagName) throws WindowsAzureInvalidProjectOperationException {
@@ -146,5 +151,149 @@ public class WebAppConfigOperations {
 			}
 		}
 		return editRequired;
+	}
+	
+	public static void prepareDownloadAspx(String filePath, String url, String key, boolean isJDK) {
+		String zipName = "server.zip";
+		if (isJDK) {
+			zipName = "jdk.zip";
+		}
+		String arguments = "";
+		if (key.isEmpty()) {
+			// public download
+			arguments = "si.StartInfo.Arguments = \"/c wash.cmd file download \\\"" + url + "\\\" \\\"" + zipName + "\\\"\";";
+		} else {
+			// private download
+			String jdkDir = url.substring(url.lastIndexOf("/") + 1, url.length());
+			String container = url.split("/")[3];
+			String accName = StorageRegistryUtilMethods.getAccNameFromUrl(url);
+			String endpoint = StorageRegistryUtilMethods.getServiceEndpoint(url);
+			endpoint = "http://" + endpoint.substring(endpoint.indexOf('.') + 1, endpoint.length());
+			arguments = "si.StartInfo.Arguments = \"/c wash.cmd blob download \\\"" + zipName + "\\\" \\\"" + jdkDir + "\\\" "
+					+ container + " " + accName + " \\\"" + key + "\\\" \\\"" + endpoint + "\\\"\";";
+		}
+		String[] aspxLines = {"<%@ Page Language=\"C#\" %>",
+				"<script runat=server>",
+				"protected String GetTime() {",
+				"System.Diagnostics.Process si = new System.Diagnostics.Process();",
+				"si.StartInfo.WorkingDirectory = @\"d:\\home\\site\\wwwroot\";",
+				"si.StartInfo.UseShellExecute = false;",
+				"si.StartInfo.FileName = \"cmd.exe\";",
+				arguments,
+				"si.StartInfo.CreateNoWindow = true;",
+				"si.Start();",
+				"si.Close();",
+				"return DateTime.Now.ToString(\"t\");}",
+				"</script>",
+				"<html>",
+				"<body>",
+				"<form id=\"form1\" runat=\"server\">",
+				"Current server time is <% =GetTime()%>.",
+				"</form>",
+				"</body>",
+		"</html>"};
+
+		File file = new File(filePath);
+		try (FileOutputStream fop = new FileOutputStream(file)) {
+			if (!file.exists()) {
+				file.createNewFile();
+			}
+			for (int i = 0; i < aspxLines.length; i++) {
+				byte[] contentInBytes = (aspxLines[i] + "\n").getBytes();
+				fop.write(contentInBytes);
+			}
+			fop.flush();
+			fop.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void prepareExtractAspx(String filePath, boolean isJDK) {
+		String zipName = "server.zip";
+		if (isJDK) {
+			zipName = "jdk.zip";
+		}
+		String[] aspxLines = {"<%@ Page Language=\"C#\" %>",
+				"<script runat=server>",
+				"private delegate void DoExtract();",
+				"protected String GetTime() {",
+				"DoExtract myAction = new DoExtract(Extraction);",
+				"myAction.BeginInvoke(null, null);",
+				"return DateTime.Now.ToString(\"t\");}",
+				"private void Extraction() {",
+				"var path1 = @\"d:\\home\\site\\wwwroot\\" + zipName + "\";",
+				"var path2 = @\"d:\\home\\site\\wwwroot\\" + zipName.substring(0, zipName.lastIndexOf('.')) + "\";",
+				"System.IO.Compression.ZipFile.ExtractToDirectory(path1, path2);}",
+				"</script>",
+				"<html>",
+				"<body>",
+				"<form id=\"form1\" runat=\"server\">",
+				"Current server time is <% =GetTime()%>.",
+				"</form>",
+				"</body>",
+		"</html>"};
+
+		File file = new File(filePath);
+		try (FileOutputStream fop = new FileOutputStream(file)) {
+			if (!file.exists()) {
+				file.createNewFile();
+			}
+			for (int i = 0; i < aspxLines.length; i++) {
+				byte[] contentInBytes = (aspxLines[i] + "\n").getBytes();
+				fop.write(contentInBytes);
+			}
+			fop.flush();
+			fop.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static void prepareWebConfigForAppInit(String fileName, String[] pages)
+			throws WindowsAzureInvalidProjectOperationException, IOException {
+		Document doc = ParserXMLUtility.parseXMLFile(fileName);
+		for (String page : pages) {
+			HashMap<String, String> nodeAttribites = new HashMap<String, String>();
+			String tmpPage = "/" + page;
+			nodeAttribites.put("initializationPage", tmpPage);
+			ParserXMLUtility.updateOrCreateElement(doc, String.format(appInitAddExp, tmpPage), appInitExp, "add", false, nodeAttribites);
+		}
+		ParserXMLUtility.saveXMLFile(fileName, doc);
+	}
+
+	public static void prepareWebConfigForCustomJDKServer(String fileName, String jdkPath, String serverPath)
+			throws WindowsAzureInvalidProjectOperationException, IOException {
+		Document doc = ParserXMLUtility.parseXMLFile(fileName);
+		HashMap<String, String> nodeAttribites = new HashMap<String, String>();
+		if (serverPath.contains("tomcat")) {
+			nodeAttribites.put("processPath", serverPath + "\\bin\\startup.bat");
+			ParserXMLUtility.updateOrCreateElement(doc, platformExp, webServerExp, platform, false, nodeAttribites);
+			if (!ParserXMLUtility.doesNodeExists(doc, varsExp)) {
+				createTag(doc, platformExp, variables);
+			}
+			// update CATALINA_HOME
+			updateVarValue(doc, "CATALINA_HOME", serverPath);
+			// update CATALINA_OPTS
+			updateVarValue(doc, "CATALINA_OPTS", catalinaOpts);
+			// update JAVA_OPTS
+			updateVarValue(doc, "JAVA_OPTS", javaOptsString);
+			if (!jdkPath.isEmpty()) {
+				updateVarValue(doc, "JRE_HOME", jdkPath);
+			}
+		} else {
+			String jdkProcessPath = "%JAVA_HOME%\\bin\\java.exe";
+			if (!jdkPath.isEmpty()) {
+				jdkProcessPath = jdkPath + "\\bin\\java.exe";
+			}
+			nodeAttribites.put("processPath", jdkProcessPath);
+			nodeAttribites.put("startupTimeLimit", "30");
+			nodeAttribites.put("startupRetryCount", "10");
+			String arg = "-Djava.net.preferIPv4Stack=true  -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=127.0.0.1:%HTTP_PLATFORM_DEBUG_PORT% -Djetty.port=%HTTP_PLATFORM_PORT% -Djetty.base=\"" + 
+					serverPath + "\" -Djetty.webapps=\"d:\\home\\site\\wwwroot\\webapps\"  -jar \"" + serverPath + "\\start.jar\" etc\\jetty-logging.xml";
+			nodeAttribites.put("arguments", arg);
+			ParserXMLUtility.updateOrCreateElement(doc, platformExp, webServerExp, platform, false, nodeAttribites);
+		}
+		ParserXMLUtility.saveXMLFile(fileName, doc);
 	}
 }
