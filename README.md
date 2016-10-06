@@ -23,4 +23,4 @@ The two projects use a lot of shared code and as of v2.8.2 (March 2016 release) 
 * [IntelliJ IDEA Plugin Repository](https://plugins.jetbrains.com/plugin/8053?pr=idea)
 
 ### Documentation 
-> :triangular_flag_on_post: Under construction. The functionality is the same as in the Azure Toolkit for Eclipse so you can refer to the [Eclipse plugins docs](https://azure.microsoft.com/en-us/documentation/articles/create-a-hello-world-web-app-for-azure-in-eclipse/) in the meantime, just remembering that "Project" in Eclipse means "Module" in IntelliJ, and "Workspace" in Eclipse means "Project" in IntelliJ.
+* Specific to the Toolkit: https://azure.microsoft.com/en-us/documentation/articles/azure-toolkit-for-intellij/
