@@ -22,41 +22,45 @@
 package com.microsoft.intellij.serviceexplorer.azure;
 
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.DialogWrapper;
-import com.microsoft.intellij.forms.ManageSubscriptionPanel;
-import com.microsoft.intellij.ui.components.DefaultDialogWrapper;
-import com.microsoft.tooling.msservices.helpers.Name;
+import com.microsoft.azuretools.authmanage.AuthMethodManager;
+import com.microsoft.azuretools.ijidea.actions.SelectSubscriptionsAction;
+import com.microsoft.intellij.AzurePlugin;
+import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
+import com.microsoft.tooling.msservices.components.DefaultLoader;
+import com.microsoft.tooling.msservices.serviceexplorer.NodeAction;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionEvent;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionListener;
-import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureServiceModule;
-import org.jetbrains.annotations.Nullable;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureModule;
 
-import javax.swing.*;
+public class ManageSubscriptionsAction extends NodeAction {
+    private static final String ICON_DARK = "ConnectAccountsDark_16.png";
+    private static final String ICON_LIGHT = "ConnectAccountsLight_16.png";
 
-@Name("Manage Subscriptions")
-public class ManageSubscriptionsAction extends NodeActionListener {
-    private AzureServiceModule azureServiceModule;
-
-    public ManageSubscriptionsAction(AzureServiceModule azureServiceModule) {
-        this.azureServiceModule = azureServiceModule;
+    public ManageSubscriptionsAction(AzureModule azureModule) {
+        super(azureModule, "Select Subscriptions");
+        addListener(new NodeActionListener() {
+            @Override
+            protected void actionPerformed(NodeActionEvent e) throws AzureCmdException {
+                SelectSubscriptionsAction.onShowSubscriptions((Project) azureModule.getProject());
+            }
+        });
     }
 
     @Override
-    public void actionPerformed(NodeActionEvent e) {
-        final ManageSubscriptionPanel manageSubscriptionPanel = new ManageSubscriptionPanel((Project) azureServiceModule.getProject(), true);
-        final DefaultDialogWrapper subscriptionsDialog = new DefaultDialogWrapper((Project) azureServiceModule.getProject(),
-                manageSubscriptionPanel) {
-            @Nullable
-            @Override
-            protected JComponent createSouthPanel() {
-                return null;
-            }
-            @Override
-            protected JComponent createTitlePane() {
-                return null;
-            }
-        };
-        manageSubscriptionPanel.setDialog(subscriptionsDialog);
-        subscriptionsDialog.show();
+    public String getIconPath() {
+        return getIcon();
+    }
+
+    public static String getIcon () {
+        return DefaultLoader.getUIHelper().isDarkTheme() ? ICON_DARK : ICON_LIGHT;
+    }
+
+    public boolean isEnabled() {
+        try {
+            return super.isEnabled() && AuthMethodManager.getInstance().isSignedIn();
+        } catch (Exception e) {
+            AzurePlugin.log("Error signing in", e);
+            return false;
+        }
     }
 }

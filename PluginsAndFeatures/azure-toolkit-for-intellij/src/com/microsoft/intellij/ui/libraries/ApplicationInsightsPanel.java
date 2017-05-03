@@ -44,9 +44,6 @@ import com.microsoft.intellij.ui.AzureAbstractPanel;
 import com.microsoft.intellij.ui.components.DefaultDialogWrapper;
 import com.microsoft.intellij.util.PluginHelper;
 import com.microsoft.intellij.util.PluginUtil;
-import com.microsoft.tooling.msservices.helpers.azure.AzureManager;
-import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
-import com.microsoft.tooling.msservices.model.Subscription;
 import org.jdesktop.swingx.JXHyperlink;
 
 import javax.swing.*;
@@ -61,6 +58,7 @@ import java.util.List;
 import static com.microsoft.intellij.ui.messages.AzureBundle.message;
 
 public class ApplicationInsightsPanel implements AzureAbstractPanel {
+    private static final String DISPLAY_NAME = "Choose Application Insights Telemetry key";
     private JPanel rootPanel;
     private JCheckBox aiCheck;
     private JXHyperlink lnkInstrumentationKey;
@@ -119,7 +117,9 @@ public class ApplicationInsightsPanel implements AzureAbstractPanel {
         public void actionPerformed(ActionEvent e) {
             String oldName = (String) comboInstrumentation.getSelectedItem();
             Project project = module.getProject();
-            final DefaultDialogWrapper dialog = new DefaultDialogWrapper(project, new AppInsightsMngmtPanel(project));
+            AppInsightsMngmtPanel appInsightsMngmtPanel = new AppInsightsMngmtPanel(project);
+            appInsightsMngmtPanel.init();
+            final DefaultDialogWrapper dialog = new DefaultDialogWrapper(project, appInsightsMngmtPanel);
             dialog.show();
             setData();
             List<String> list = Arrays.asList(ApplicationInsightsResourceRegistry.getResourcesNamesToDisplay());
@@ -127,9 +127,8 @@ public class ApplicationInsightsPanel implements AzureAbstractPanel {
             if (list.size() > 0) {
                 if (dialog.isOK()) {
                     String newKey = dialog.getSelectedValue();
-                    int index = ApplicationInsightsResourceRegistry.getResourceIndexAsPerKey(newKey);
-                    if (index >= 0) {
-                        comboInstrumentation.setSelectedItem(list.get(index));
+                    if (newKey != null && ApplicationInsightsResourceRegistry.getResourceIndexAsPerKey(newKey) >= 0) {
+                        comboInstrumentation.setSelectedItem(list.get(ApplicationInsightsResourceRegistry.getResourceIndexAsPerKey(newKey)));
                     } else if (list.contains(oldName)) {
                         comboInstrumentation.setSelectedItem(oldName);
                     }
@@ -180,7 +179,7 @@ public class ApplicationInsightsPanel implements AzureAbstractPanel {
 
     @Override
     public String getDisplayName() {
-        return null;
+        return DISPLAY_NAME;
     }
 
     @Override
@@ -287,7 +286,7 @@ public class ApplicationInsightsPanel implements AzureAbstractPanel {
         final ModifiableRootModel modifiableModel = ModuleRootManager.getInstance(module).getModifiableModel();
         for (OrderEntry orderEntry : modifiableModel.getOrderEntries()) {
             if (orderEntry instanceof ModuleLibraryOrderEntryImpl
-                    && AzureLibrary.AZURE_LIBRARIES.getName().equals(((ModuleLibraryOrderEntryImpl) orderEntry).getLibraryName())) {
+                    && AzureLibrary.APP_INSIGHTS.getName().equals(((ModuleLibraryOrderEntryImpl) orderEntry).getLibraryName())) {
                 return;
             }
         }
@@ -295,19 +294,17 @@ public class ApplicationInsightsPanel implements AzureAbstractPanel {
         final LibrariesContainer.LibraryLevel level = LibrariesContainer.LibraryLevel.MODULE;
         AccessToken token = WriteAction.start();
         try {
-            Library newLibrary = LibrariesContainerFactory.createContainer(modifiableModel).createLibrary(AzureLibrary.AZURE_LIBRARIES.getName(), level, new ArrayList<OrderRoot>());
+            Library newLibrary = LibrariesContainerFactory.createContainer(modifiableModel).createLibrary(AzureLibrary.APP_INSIGHTS.getName(), level, new ArrayList<OrderRoot>());
             for (OrderEntry orderEntry : modifiableModel.getOrderEntries()) {
                 if (orderEntry instanceof ModuleLibraryOrderEntryImpl
-                        && AzureLibrary.AZURE_LIBRARIES.getName().equals(((ModuleLibraryOrderEntryImpl) orderEntry).getLibraryName())) {
+                        && AzureLibrary.APP_INSIGHTS.getName().equals(((ModuleLibraryOrderEntryImpl) orderEntry).getLibraryName())) {
                     ((ModuleLibraryOrderEntryImpl) orderEntry).setExported(true);
                     break;
                 }
             }
             Library.ModifiableModel newLibraryModel = newLibrary.getModifiableModel();
-            File file = new File(String.format("%s%s%s", AzurePlugin.pluginFolder, File.separator, AzureLibrary.AZURE_LIBRARIES.getLocation()));
-            AddLibraryUtility.addLibraryRoot(file, newLibraryModel);
-            AddLibraryUtility.addLibraryFiles(new File(PluginHelper.getAzureLibLocation()), newLibraryModel,
-                    AzureLibrary.AZURE_LIBRARIES.getFiles());
+            AddLibraryUtility.addLibraryFiles(new File(PluginHelper.getAzureLibLocation()), newLibraryModel, AzureLibrary.APP_INSIGHTS.getFiles());
+
             newLibraryModel.commit();
             modifiableModel.commit();
         } catch (Exception ex) {

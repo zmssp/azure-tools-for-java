@@ -22,6 +22,7 @@ package com.microsoft.applicationinsights.preference;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.eclipse.jface.action.Action;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.preference.PreferencePage;
 import org.eclipse.jface.viewers.ILabelProviderListener;
@@ -33,6 +34,7 @@ import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.jface.window.Window;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.SelectionListener;
 import org.eclipse.swt.graphics.Image;
@@ -46,23 +48,29 @@ import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPreferencePage;
 
-import com.gigaspaces.azure.wizards.WizardCacheManager;
 import com.microsoft.applicationinsights.ui.activator.Activator;
 import com.microsoft.applicationinsights.ui.config.AIResourceChangeListener;
-import com.microsoft.tooling.msservices.helpers.azure.AzureManager;
-import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
-import com.microsoft.tooling.msservices.model.Subscription;
-import com.microsoft.wacommon.applicationinsights.ApplicationInsightsPreferences;
-import com.microsoft.wacommon.applicationinsights.ApplicationInsightsResourceRegistryEclipse;
-import com.microsoftopentechnologies.wacommon.commoncontrols.ManageSubscriptionDialog;
-import com.microsoftopentechnologies.wacommon.utils.PluginUtil;
+import com.microsoft.azuretools.core.utils.PluginUtil;
+import com.microsoft.azuretools.sdkmanage.AzureManager;
+import com.microsoft.tooling.msservices.components.DefaultLoader;
+import com.microsoft.azuretools.authmanage.AuthMethodManager;
+import com.microsoft.azuretools.authmanage.models.SubscriptionDetail;
+import com.microsoft.azuretools.core.applicationinsights.ApplicationInsightsPreferences;
+import com.microsoft.azuretools.core.applicationinsights.ApplicationInsightsResourceRegistryEclipse;
+import com.microsoft.azuretools.core.handlers.SelectSubsriptionsCommandHandler;
+import com.microsoft.azuretools.core.handlers.SignInCommandHandler;
+import com.microsoft.azuretools.core.handlers.SignOutCommandHandler;
 
 /**
  * Class for Application Insights preference page.
  * Creates UI components and their listeners.
  */
 public class ApplicationInsightsPreferencePage extends PreferencePage implements IWorkbenchPreferencePage {
-	private Button btnImpFrmAzure;
+    private static final String ICON_SIGNIN = "/icons/SignInLight_16.png";
+    private static final String ICON_SIGNOUT = "/icons/SignOutLight_16.png";
+    private static final String ICON_SELECT_SUBSCRIPTIONS = "/icons/ConnectAccountsLight_16.png";
+    private Button signInOutBtn;
+    private Button selectSubscriptionsBtn;
 	private Table table;
 	private TableViewer tableViewer;
 	private Button btnNew;
@@ -86,27 +94,48 @@ public class ApplicationInsightsPreferencePage extends PreferencePage implements
 		gridData.grabExcessHorizontalSpace = true;
 		composite.setLayout(gridLayout);
 		composite.setLayoutData(gridData);
-		createImportBtnCmpnt(composite, 2);
+		createBtnCmpnt(composite);
 		createApplicationInsightsResourceTable(composite);
 		return null;
 	}
 
-	public void createImportBtnCmpnt(Composite parent, int horiSpan) {
-		btnImpFrmAzure = new Button(parent, SWT.PUSH | SWT.CENTER);
+	public void createBtnCmpnt(Composite parent) {
+		Composite container = new Composite(parent, SWT.NONE);
+		GridLayout gridLayout = new GridLayout();
+		gridLayout.numColumns = 2;
 		GridData gridData = new GridData();
+		gridData.horizontalAlignment = SWT.LEFT;
+		gridData.horizontalSpan = 2;
+		container.setLayout(gridLayout);
+		container.setLayoutData(gridData);
+		signInOutBtn = new Button(container, SWT.PUSH | SWT.LEFT);
+		gridData = new GridData();
 		gridData.horizontalIndent = 3;
-		gridData.horizontalSpan = horiSpan;
-		gridData.widthHint = 300;
-		btnImpFrmAzure.setText(Messages.imprtAzureLbl);
-		btnImpFrmAzure.setLayoutData(gridData);
-		btnImpFrmAzure.addSelectionListener(new SelectionListener() {
+		boolean isSignedIn = false;
+		try {
+			isSignedIn = AuthMethodManager.getInstance().isSignedIn();
+		} catch (Exception e) {
+			// ignore
+		}
+		signInOutBtn.setImage(PluginUtil.getImage(isSignedIn ? ICON_SIGNOUT : ICON_SIGNIN));
+		signInOutBtn.setToolTipText(isSignedIn ? "Sign Out" : "Sign In");
+		signInOutBtn.setLayoutData(gridData);
+		signInOutBtn.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent arg0) {
-				importButtonListener();
+				signInOutBtnListener();
 			}
-
+		});
+		selectSubscriptionsBtn = new Button(container, SWT.PUSH | SWT.LEFT);
+		gridData = new GridData();
+		gridData.horizontalIndent = 3;
+		selectSubscriptionsBtn.setImage(PluginUtil.getImage(ICON_SELECT_SUBSCRIPTIONS));
+		selectSubscriptionsBtn.setToolTipText("Select Subscriptions");
+		selectSubscriptionsBtn.setLayoutData(gridData);
+		selectSubscriptionsBtn.addSelectionListener(new SelectionAdapter() {
 			@Override
-			public void widgetDefaultSelected(SelectionEvent arg0) {
+			public void widgetSelected(SelectionEvent arg0) {
+				selectSubscriptionListener();
 			}
 		});
 	}
@@ -153,8 +182,7 @@ public class ApplicationInsightsPreferencePage extends PreferencePage implements
 		tableViewer.setLabelProvider(new ITableLabelProvider() {
 
 			@Override
-			public void removeListener(
-					ILabelProviderListener ilabelproviderlistener) {
+			public void removeListener(ILabelProviderListener ilabelproviderlistener) {
 			}
 
 			@Override
@@ -167,8 +195,7 @@ public class ApplicationInsightsPreferencePage extends PreferencePage implements
 			}
 
 			@Override
-			public void addListener(
-					ILabelProviderListener ilabelproviderlistener) {
+			public void addListener(ILabelProviderListener ilabelproviderlistener) {
 			}
 
 			@Override
@@ -305,65 +332,63 @@ public class ApplicationInsightsPreferencePage extends PreferencePage implements
 		});
 	}
 
-	/**
-	 * Method imports existing application insights data from azure.
-	 */
-	protected void importButtonListener() {
+	private void signInOutBtnListener() {
 		try {
-			AzureManager manager = AzureManagerImpl.getManager();
-			List<Subscription> subList = manager.getSubscriptionList();
-			if (subList.size() > 0) {
-				if (manager.authenticated()) {
-					createSubscriptionDialog(false);
-				} else {
-					// imported publish settings file.
-					manager.clearImportedPublishSettingsFiles();
-					WizardCacheManager.clearSubscriptions();
-					createSubscriptionDialog(true);
-				}
-			} else {
-				createSubscriptionDialog(true);
-			}
-		} catch(Exception ex) {
-			Activator.getDefault().log(Messages.importErrMsg, ex);
-		}
-	}
+    		AuthMethodManager authMethodManager = AuthMethodManager.getInstance();
+    		boolean isSignedIn = authMethodManager.isSignedIn();
+    		if (isSignedIn) {
+    			SignOutCommandHandler.doSignOut(PluginUtil.getParentShell());
+    		} else {
+    			SignInCommandHandler.doSignIn(PluginUtil.getParentShell());
+    		}
+    		signInOutBtn.setImage(PluginUtil.getImage(authMethodManager.isSignedIn() ? ICON_SIGNOUT : ICON_SIGNIN));
+    		tableViewer.refresh();
+    	} catch (Exception ex) {
+    		Activator.getDefault().log(ex.getMessage(), ex);
+    	}
+    }	
 
+	private void selectSubscriptionListener() {
+//selectSubscriptionAction = new Action("Select Subscriptions", com.microsoft.azuretools.core.Activator.getImageDescriptor("icons/ConnectAccountsLight_16.png")) {
+//    public void run() {
+    	try {
+    	    if (AuthMethodManager.getInstance().isSignedIn()) {
+    	        SelectSubsriptionsCommandHandler.onSelectSubscriptions(PluginUtil.getParentShell());
+    	        tableViewer.refresh();
+    	    }
+    	} catch (Exception ex) {
+    		Activator.getDefault().log(ex.getMessage(), ex);
+		}
+    }
+	
 	/**
 	 * Method opens dialog to create new application insights resource.
 	 */
 	protected void newButtonListener() {
-		try {
-			AzureManager manager = AzureManagerImpl.getManager();
-			List<Subscription> subList = manager.getSubscriptionList();
-			if (subList.size() > 0) {
-				if (!manager.authenticated()) {
-					// imported publish settings file.
-					manager.clearImportedPublishSettingsFiles();
-					WizardCacheManager.clearSubscriptions();
-					createSubscriptionDialog(true);
-				}
-			} else {
-				createSubscriptionDialog(true);
-			}
-			createNewDilaog();
-		} catch(Exception ex) {
-			Activator.getDefault().log(Messages.importErrMsg, ex);
-		}
+		createNewDilaog();
 	}
 
 	public void createNewDilaog() {
 		ApplicationInsightsNewDialog dialog = new ApplicationInsightsNewDialog(getShell());
-		int result = dialog.open();
-		if (result == Window.OK) {
-			ApplicationInsightsResource resource = ApplicationInsightsNewDialog.getResource();
-			if (resource!= null &&
-					!ApplicationInsightsResourceRegistry.getAppInsightsResrcList().contains(resource)) {
-				ApplicationInsightsResourceRegistry.getAppInsightsResrcList().add(resource);
-				ApplicationInsightsPreferences.save();
+		dialog.setOnCreate(new Runnable() {
+			
+			@Override
+			public void run() {
+				ApplicationInsightsResource resource = ApplicationInsightsNewDialog.getResource();
+				if (resource!= null &&
+						!ApplicationInsightsResourceRegistry.getAppInsightsResrcList().contains(resource)) {
+					ApplicationInsightsResourceRegistry.getAppInsightsResrcList().add(resource);
+					ApplicationInsightsPreferences.save();
+				}
+				DefaultLoader.getIdeHelper().invokeLater(new Runnable() {		
+					@Override
+					public void run() {
+						tableViewer.refresh();	
+					}
+				});
 			}
-		}
-		tableViewer.refresh();
+		});
+		dialog.open();
 	}
 
 	/**
@@ -461,21 +486,19 @@ public class ApplicationInsightsPreferencePage extends PreferencePage implements
 
 	private void loadInfoFirstTime() {
 		try {
-			AzureManager manager = AzureManagerImpl.getManager();
-			List<Subscription> subList = manager.getSubscriptionList();
-			if (subList.size() > 0) {
-				if (!ApplicationInsightsPreferences.isLoaded()) {
-					if (manager.authenticated()) {
+			if (AuthMethodManager.getInstance().isSignedIn()) {
+                AzureManager azureManager = AuthMethodManager.getInstance().getAzureManager();
+                List<SubscriptionDetail> subList = azureManager.getSubscriptionManager().getSubscriptionDetails();
+                if (subList.size() > 0) {
+//				if (!ApplicationInsightsPreferences.isLoaded()) {
 						// authenticated using AD. Proceed for updating application insights registry.
-						ApplicationInsightsResourceRegistryEclipse.updateApplicationInsightsResourceRegistry(subList);
-					} else {
-						// imported publish settings file. just show manually added list from preferences
-						// Neither clear subscription list nor show sign in dialog as user may just want to add key manually.
-						ApplicationInsightsResourceRegistryEclipse.keeepManuallyAddedList();
-					}
+					ApplicationInsightsResourceRegistryEclipse.updateApplicationInsightsResourceRegistry(subList);
 				} else {
-					// show list from preferences - getTableContent() does it. So nothing to handle here
+					ApplicationInsightsResourceRegistryEclipse.keeepManuallyAddedList();
 				}
+//				} else {
+//					// show list from preferences - getTableContent() does it. So nothing to handle here
+//				}
 			} else {
 				// just show manually added list from preferences
 				ApplicationInsightsResourceRegistryEclipse.keeepManuallyAddedList();
@@ -486,7 +509,7 @@ public class ApplicationInsightsPreferencePage extends PreferencePage implements
 	}
 
 	private void createSubscriptionDialog(boolean invokeSignIn) {
-		try {
+		/*try {
 			ManageSubscriptionDialog dialog = new ManageSubscriptionDialog(getShell(), false, invokeSignIn);
 			dialog.create();
 			dialog.open();
@@ -499,6 +522,6 @@ public class ApplicationInsightsPreferencePage extends PreferencePage implements
 			tableViewer.refresh();
 		} catch(Exception ex) {
 			PluginUtil.displayErrorDialogWithAzureMsg(getShell(), Messages.appTtl, Messages.importErrMsg, ex);
-		}
+		}*/
 	}
 }

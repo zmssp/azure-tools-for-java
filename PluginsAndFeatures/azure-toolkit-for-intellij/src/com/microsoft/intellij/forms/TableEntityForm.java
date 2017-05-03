@@ -34,9 +34,8 @@ import com.microsoft.intellij.helpers.DatePickerCellEditor;
 import com.microsoft.intellij.helpers.UIHelperImpl;
 import com.microsoft.intellij.helpers.storage.TableFileEditor;
 import com.microsoft.intellij.util.PluginUtil;
-import com.microsoft.tooling.msservices.components.DefaultLoader;
-import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
-import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManagerImpl;
+import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
+import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManager;
 import com.microsoft.tooling.msservices.model.storage.ClientStorageAccount;
 import com.microsoft.tooling.msservices.model.storage.TableEntity;
 import org.jetbrains.annotations.NotNull;
@@ -232,9 +231,9 @@ public class TableEntityForm extends DialogWrapper {
             public void run(@NotNull ProgressIndicator progressIndicator) {
                 progressIndicator.setIndeterminate(true);
 
-                try {
+                /*try {
                     if (tableEntity == null) {
-                        tableEntity = StorageClientSDKManagerImpl.getManager().createTableEntity(storageAccount,
+                        tableEntity = StorageClientSDKManager.getManager().createTableEntity(storageAccount,
                                 tableName,
                                 partitionKey,
                                 rowKey,
@@ -242,14 +241,14 @@ public class TableEntityForm extends DialogWrapper {
                     } else {
                         tableEntity.getProperties().clear();
                         tableEntity.getProperties().putAll(properties);
-                        tableEntity = StorageClientSDKManagerImpl.getManager().updateTableEntity(storageAccount, tableEntity);
+                        tableEntity = StorageClientSDKManager.getManager().updateTableEntity(storageAccount, tableEntity);
                     }
 
                     onFinish.run();
                 } catch (AzureCmdException e) {
                     String msg = "An error occurred while attempting to create entity." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
                     PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
-                }
+                }*/
             }
         });
 

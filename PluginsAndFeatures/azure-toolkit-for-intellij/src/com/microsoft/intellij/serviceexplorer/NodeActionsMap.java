@@ -25,16 +25,17 @@ package com.microsoft.intellij.serviceexplorer;
 import com.google.common.collect.ImmutableList;
 import com.microsoft.azure.hdinsight.serverexplore.HDInsightRootModuleImpl;
 import com.microsoft.azure.hdinsight.serverexplore.action.AddNewClusterAction;
-import com.microsoft.intellij.serviceexplorer.azure.ManageSubscriptionsAction;
+import com.microsoft.azure.hdinsight.serverexplore.action.AddNewEmulatorAction;
+import com.microsoft.intellij.serviceexplorer.azure.docker.*;
 import com.microsoft.intellij.serviceexplorer.azure.storage.*;
-import com.microsoft.intellij.serviceexplorer.azure.vm.CreateVMAction;
 import com.microsoft.intellij.serviceexplorer.azure.webapps.OpenWebappAction;
+import com.microsoft.intellij.serviceexplorer.azure.webapps.RemoteDebugAction;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionListener;
-import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureServiceModule;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.docker.DockerHostModule;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.docker.DockerHostNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.storage.*;
-import com.microsoft.tooling.msservices.serviceexplorer.azure.vm.VMServiceModule;
-import com.microsoft.tooling.msservices.serviceexplorer.azure.vmarm.VMArmServiceModule;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.vmarm.VMArmModule;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.webapps.WebappNode;
 
 import java.util.HashMap;
@@ -45,17 +46,17 @@ public class NodeActionsMap {
             new HashMap<Class<? extends Node>, ImmutableList<Class<? extends NodeActionListener>>>();
 
     static {
-        node2Actions.put(AzureServiceModule.class, new ImmutableList.Builder().add(ManageSubscriptionsAction.class).build());
-        node2Actions.put(VMServiceModule.class, new ImmutableList.Builder().add(CreateVMAction.class).build());
-        node2Actions.put(VMArmServiceModule.class, new ImmutableList.Builder().add(com.microsoft.intellij.serviceexplorer.azure.vmarm.CreateVMAction.class).build());
+        node2Actions.put(VMArmModule.class, new ImmutableList.Builder().add(com.microsoft.intellij.serviceexplorer.azure.vmarm.CreateVMAction.class).build());
         node2Actions.put(QueueModule.class, new ImmutableList.Builder().add(CreateQueueAction.class).build());
         node2Actions.put(TableModule.class, new ImmutableList.Builder().add(com.microsoft.intellij.serviceexplorer.azure.storage.CreateTableAction.class).build());
         node2Actions.put(BlobModule.class, new ImmutableList.Builder().add(CreateBlobContainer.class).build());
-        node2Actions.put(StorageModule.class, new ImmutableList.Builder().add(CreateStorageAccountAction.class, AttachExternalStorageAccountAction.class).build());
-        node2Actions.put(com.microsoft.tooling.msservices.serviceexplorer.azure.storagearm.StorageModule.class, new ImmutableList.Builder().add(com.microsoft.intellij.serviceexplorer.azure.storagearm.CreateStorageAccountAction.class).build());
-        node2Actions.put(com.microsoft.tooling.msservices.serviceexplorer.azure.storagearm.StorageNode.class, new ImmutableList.Builder().add(CreateBlobContainer.class).build());
+        node2Actions.put(StorageModule.class, new ImmutableList.Builder().add(com.microsoft.intellij.serviceexplorer.azure.storagearm.CreateStorageAccountAction.class).build());
+        node2Actions.put(StorageNode.class, new ImmutableList.Builder().add(CreateBlobContainer.class).build());
+        // todo: what is ConfirmDialogAction?
         node2Actions.put(ExternalStorageNode.class, new ImmutableList.Builder().add(ConfirmDialogAction.class, ModifyExternalStorageAccountAction.class).build());
-        node2Actions.put(WebappNode.class, new ImmutableList.Builder().add(OpenWebappAction.class).build());
-        node2Actions.put(HDInsightRootModuleImpl.class, new ImmutableList.Builder().add(AddNewClusterAction.class).build());
+        node2Actions.put(WebappNode.class, new ImmutableList.Builder().add(OpenWebappAction.class/*, RemoteDebugAction.class*/).build());
+        node2Actions.put(HDInsightRootModuleImpl.class, new ImmutableList.Builder().add(AddNewClusterAction.class, AddNewEmulatorAction.class).build());
+        node2Actions.put(DockerHostNode.class, new ImmutableList.Builder().add(ViewDockerHostAction.class, DeployDockerContainerAction.class, DeleteDockerHostAction.class).build());
+        node2Actions.put(DockerHostModule.class, new ImmutableList.Builder().add(CreateNewDockerHostAction.class, PublishDockerContainerAction.class).build());
     }
 }

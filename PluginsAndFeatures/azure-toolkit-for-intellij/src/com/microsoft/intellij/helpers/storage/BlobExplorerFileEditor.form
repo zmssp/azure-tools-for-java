@@ -40,7 +40,7 @@
                   <defaultCapable value="true"/>
                   <focusPainted value="true"/>
                   <hideActionText value="false"/>
-                  <icon value="icons/storagequery.png"/>
+                  <icon value="icons/Start.png"/>
                   <iconTextGap value="0"/>
                   <inheritsPopupMenu value="true"/>
                   <margin top="2" left="2" bottom="2" right="2"/>
@@ -50,7 +50,7 @@
                   <preferredSize width="32" height="32"/>
                   <selected value="false"/>
                   <text value=""/>
-                  <toolTipText value="Execute"/>
+                  <toolTipText value="Search"/>
                   <verticalAlignment value="1"/>
                   <verticalTextPosition value="1"/>
                   <visible value="true"/>

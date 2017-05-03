@@ -21,7 +21,6 @@
  */
 package com.microsoft.intellij.util;
 
-import com.intellij.openapi.application.PathManager;
 import com.microsoft.intellij.ui.messages.AzureBundle;
 import com.wacommon.utils.WACommonException;
 
@@ -40,7 +39,7 @@ public class PluginHelper {
         try {
             String pluginInstLoc = PluginUtil.getPluginRootDirectory();
             libLocation = String.format(pluginInstLoc + "%s%s", File.separator, "lib");
-            File file = new File(String.format(libLocation + "%s%s", File.separator, AzureBundle.message("sdkLibBaseJar")));
+            File file = new File(String.format(libLocation + "%s%s", File.separator, "azure-1.0.0.jar"));
             if (!file.exists()) {
                 throw new WACommonException(AzureBundle.message("SDKLocErrMsg"));
             }

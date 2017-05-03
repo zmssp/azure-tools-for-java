@@ -36,10 +36,10 @@ import com.microsoft.azure.hdinsight.sdk.cluster.IClusterDetail;
 import com.microsoft.azure.hdinsight.spark.uihelper.InteractiveRenderer;
 import com.microsoft.azure.hdinsight.spark.uihelper.InteractiveTableModel;
 import com.microsoft.azure.hdinsight.spark.common.*;
+import com.microsoft.azuretools.azurecommons.helpers.StringHelper;
 import com.microsoft.intellij.hdinsight.messages.HDInsightBundle;
 import com.microsoft.intellij.util.AppInsightsCustomEvent;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
-import com.microsoft.tooling.msservices.helpers.StringHelper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -74,6 +74,8 @@ public class SparkSubmissionExDialog extends JDialog {
     private JRadioButton intelliJArtifactRadioButton;
     private JRadioButton localArtifactRadioButton;
     private JButton buttonSubmit;
+
+    private static final String REFRESH_BUTTON_PATH = "/icons/refresh.png";
 
     private final JLabel[] errorMessageLabels = new JLabel[5];
     private enum ErrorMessageLabelTag {
@@ -118,7 +120,8 @@ public class SparkSubmissionExDialog extends JDialog {
 
     //region UI Constructor
     private void initializeComponents() {
-        setIconImage(StreamUtil.getImageResourceFile(CommonConst.ProductIConPath).getImage());
+        Image image = StreamUtil.getImageResourceFile(CommonConst.ProductIConPath).getImage();
+        setIconImage(image);
 
         contentPane = new JPanel();
         setContentPane(contentPane);
@@ -187,7 +190,7 @@ public class SparkSubmissionExDialog extends JDialog {
 
 
         clustersListComboBox = new ComboboxWithBrowseButton();
-        clustersListComboBox.setButtonIcon(StreamUtil.getImageResourceFile(CommonConst.RefreshIConPath));
+        clustersListComboBox.setButtonIcon(StreamUtil.getImageResourceFile(REFRESH_BUTTON_PATH));
         clustersListComboBox.getButton().setToolTipText("Refresh");
         clustersListComboBox.getButton().addActionListener(new ActionListener() {
             @Override

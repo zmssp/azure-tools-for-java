@@ -31,36 +31,33 @@ import com.microsoft.applicationinsights.preference.ApplicationInsightsPageTable
 import com.microsoft.applicationinsights.preference.ApplicationInsightsPageTableElements;
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResource;
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResourceRegistry;
+import com.microsoft.azuretools.authmanage.AuthMethodManager;
+import com.microsoft.azuretools.authmanage.models.SubscriptionDetail;
+import com.microsoft.azuretools.ijidea.actions.AzureSignInAction;
+import com.microsoft.azuretools.ijidea.actions.SelectSubscriptionsAction;
+import com.microsoft.azuretools.sdkmanage.AzureManager;
 import com.microsoft.intellij.AzurePlugin;
 import com.microsoft.intellij.AzureSettings;
-import com.microsoft.intellij.forms.ManageSubscriptionPanel;
-import com.microsoft.intellij.ui.components.DefaultDialogWrapper;
 import com.microsoft.intellij.util.MethodUtils;
 import com.microsoft.intellij.util.PluginUtil;
-import com.microsoft.intellij.wizards.WizardCacheManager;
-import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
-import com.microsoft.tooling.msservices.helpers.azure.AzureManager;
-import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
-import com.microsoft.tooling.msservices.model.Subscription;
 import static com.microsoft.intellij.ui.messages.AzureBundle.message;
-import com.microsoft.applicationinsights.management.rest.client.RestOperationException;
-import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
+import com.microsoft.tooling.msservices.components.DefaultLoader;
+import com.microsoft.tooling.msservices.helpers.azure.sdk.AzureSDKManager;
 
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableColumn;
-import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 
 public class AppInsightsMngmtPanel implements AzureAbstractConfigurablePanel {
     private JPanel contentPane;
-    private JButton importInstrumentationKeysFromButton;
+    private JButton signInOutBtn;
+    private JButton selectSubscriptionsBtn;
     private JTable insightsTable;
     private JButton newButton;
     private JButton removeButton;
@@ -71,10 +68,10 @@ public class AppInsightsMngmtPanel implements AzureAbstractConfigurablePanel {
 
     public AppInsightsMngmtPanel(Project project) {
         this.myProject = project;
-        init();
     }
 
-    protected void init() {
+    @Override
+    public void init() {
         insightsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         AzureSettings.getSafeInstance(myProject).loadAppInsights();
         loadInfoFirstTime();
@@ -83,7 +80,8 @@ public class AppInsightsMngmtPanel implements AzureAbstractConfigurablePanel {
             TableColumn each = insightsTable.getColumnModel().getColumn(i);
             each.setPreferredWidth(InsightsTableModel.getColumnWidth(i, 450));
         }
-        importInstrumentationKeysFromButton.addActionListener(importButtonListener());
+        selectSubscriptionsBtn.addActionListener(manageSubscriptionsListener());
+        signInOutBtn.addActionListener(signInOutListener());
         newButton.addActionListener(newButtonListener());
         removeButton.addActionListener(removeButtonListener());
         addButton.addActionListener(addButtonListener());
@@ -136,60 +134,26 @@ public class AppInsightsMngmtPanel implements AzureAbstractConfigurablePanel {
 
     private void loadInfoFirstTime() {
         try {
-            AzureManager manager = AzureManagerImpl.getManager(myProject);
-            List<Subscription> subList = manager.getSubscriptionList();
-            if (subList.size() > 0) {
-                if (!AzureSettings.getSafeInstance(myProject).isAppInsightsLoaded()) {
-                    if (manager.authenticated()) {
-                        // authenticated using AD. Proceed for updating application insights registry.
-                        updateApplicationInsightsResourceRegistry(subList, myProject);
-                    } else {
-                        // imported publish settings file. just show manually added list from preferences
-                        // Neither clear subscription list nor show sign in dialog as user may just want to add key manually.
-                        keeepManuallyAddedList(myProject);
-                    }
+            if (AuthMethodManager.getInstance().isSignedIn()) {
+                AzureManager azureManager = AuthMethodManager.getInstance().getAzureManager();
+                List<SubscriptionDetail> subList = azureManager.getSubscriptionManager().getSubscriptionDetails();
+                if (subList.size() > 0) {
+//                if (!AzureSettings.getSafeInstance(myProject).isAppInsightsLoaded()) {
+                    updateApplicationInsightsResourceRegistry(subList, myProject);
                 } else {
-                    // show list from preferences - getTableContent() does it. So nothing to handle here
+                    // just show manually added list from preferences
+                    // Neither clear subscription list nor show sign in dialog as user may just want to add key manually.
+                    keeepManuallyAddedList(myProject);
                 }
+//                } else {
+                // show list from preferences - getTableContent() does it. So nothing to handle here
+//                }
             } else {
                 // just show manually added list from preferences
                 keeepManuallyAddedList(myProject);
             }
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             AzurePlugin.log(ex.getMessage(), ex);
-        }
-    }
-
-    private void createSubscriptionDialog(boolean invokeSignIn) {
-        try {
-            final ManageSubscriptionPanel manageSubscriptionPanel = new ManageSubscriptionPanel(myProject, false);
-            final DefaultDialogWrapper subscriptionsDialog = new DefaultDialogWrapper(myProject, manageSubscriptionPanel) {
-                @Nullable
-                @Override
-                protected JComponent createSouthPanel() {
-                    return null;
-                }
-                @Override
-                protected JComponent createTitlePane() {
-                    return null;
-                }
-            };
-            manageSubscriptionPanel.setDialog(subscriptionsDialog);
-            JButton signInBtn = manageSubscriptionPanel.getSignInButton();
-            if (invokeSignIn && signInBtn != null && signInBtn.getText().equalsIgnoreCase("Sign In...")) {
-                signInBtn.doClick();
-            }
-            subscriptionsDialog.show();
-            List<Subscription> subList = AzureManagerImpl.getManager(myProject).getSubscriptionList();
-            if (subList.size() == 0) {
-                keeepManuallyAddedList(myProject);
-            } else {
-                updateApplicationInsightsResourceRegistry(subList, myProject);
-            }
-            ((InsightsTableModel) insightsTable.getModel()).setResources(getTableContent());
-            ((InsightsTableModel) insightsTable.getModel()).fireTableDataChanged();
-        } catch(Exception ex) {
-            PluginUtil.displayErrorDialog(message("errTtl"), message("importErrMsg"));
         }
     }
 
@@ -210,123 +174,42 @@ public class AppInsightsMngmtPanel implements AzureAbstractConfigurablePanel {
         return elements.getElements();
     }
 
-    private ActionListener importButtonListener() {
-        return new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
+    public static void updateApplicationInsightsResourceRegistry(List<SubscriptionDetail> subList, Project project) throws Exception {
+        // remove all resourecs that were not manually added
+        keeepManuallyAddedList(project);
+        for (SubscriptionDetail sub : subList) {
+            if (sub.isSelected()) {
                 try {
-                    AzureManager manager = AzureManagerImpl.getManager(myProject);
-                    List<Subscription> subList = manager.getSubscriptionList();
-                    if (subList.size() > 0) {
-                        if (manager.authenticated()) {
-                            createSubscriptionDialog(false);
-                        } else {
-                            // imported publish settings file.
-                            manager.clearImportedPublishSettingsFiles();
-                            WizardCacheManager.clearSubscriptions();
-                            createSubscriptionDialog(true);
-                        }
-                    } else {
-                        createSubscriptionDialog(true);
-                    }
-                } catch(Exception ex) {
-                    AzurePlugin.log(ex.getMessage(), ex);
-                }
-            }
-        };
-    }
-
-    public static void updateApplicationInsightsResourceRegistry(List<Subscription> subList, Project project) throws IOException, RestOperationException, AzureCmdException {
-        for (Subscription sub : subList) {
-            AzureManager manager = AzureManagerImpl.getManager(project);
-            // fetch resources available for particular subscription
-            List<Resource> resourceList = manager.getApplicationInsightsResources(sub.getId());
-
-            // Removal logic
-            List<ApplicationInsightsResource> registryList = ApplicationInsightsResourceRegistry.
-                    getResourceListAsPerSub(sub.getId());
-            List<ApplicationInsightsResource> importedList = ApplicationInsightsResourceRegistry.
-                    prepareAppResListFromRes(resourceList, sub);
-            List<String> inUsekeyList = MethodUtils.getInUseInstrumentationKeys(project);
-            for (ApplicationInsightsResource registryRes : registryList) {
-                if (!importedList.contains(registryRes)) {
-                    String key = registryRes.getInstrumentationKey();
-                    int index = ApplicationInsightsResourceRegistry.getResourceIndexAsPerKey(key);
-                    if (inUsekeyList.contains(key)) {
-						/*
-						 * key is used by project but not present in cloud,
-						 * so make it as manually added resource and not imported.
-						 */
-                        ApplicationInsightsResource resourceToAdd = new ApplicationInsightsResource(
-                                key, key, message("unknown"), message("unknown"),
-                                message("unknown"), message("unknown"), false);
-                        ApplicationInsightsResourceRegistry.getAppInsightsResrcList().set(index, resourceToAdd);
-                    } else {
-                        // key is not used by any project then delete it.
-                        ApplicationInsightsResourceRegistry.getAppInsightsResrcList().remove(index);
-                    }
-                }
-            }
-
-            // Addition logic
-            List<ApplicationInsightsResource> list = ApplicationInsightsResourceRegistry.
-                    getAppInsightsResrcList();
-            for (Resource resource : resourceList) {
-                ApplicationInsightsResource resourceToAdd = new ApplicationInsightsResource(
-                        resource.getName(), resource.getInstrumentationKey(),
-                        sub.getName(), sub.getId(),
-                        resource.getLocation(), resource.getResourceGroup(), true);
-                if (list.contains(resourceToAdd)) {
-                    int index = ApplicationInsightsResourceRegistry.
-                            getResourceIndexAsPerKey(resource.getInstrumentationKey());
-                    ApplicationInsightsResource objectFromRegistry = list.get(index);
-                    if (!objectFromRegistry.isImported()) {
-                        ApplicationInsightsResourceRegistry.
-                                getAppInsightsResrcList().set(index, resourceToAdd);
-                    }
-                } else {
-                    ApplicationInsightsResourceRegistry.
-                            getAppInsightsResrcList().add(resourceToAdd);
+                    // fetch resources available for particular subscription
+                    List<Resource> resourceList = AzureSDKManager.getApplicationInsightsResources(sub);
+                    // Removal logic
+                    List<ApplicationInsightsResource> importedList = ApplicationInsightsResourceRegistry.prepareAppResListFromRes(resourceList, sub);
+                    // Addition logic
+                    ApplicationInsightsResourceRegistry.getAppInsightsResrcList().addAll(importedList);
+                } catch (Exception ex) {
+                    AzurePlugin.log("Error loading AppInsights information for subscription '" + sub.getSubscriptionName() + "'");
                 }
             }
         }
         AzureSettings.getSafeInstance(project).saveAppInsights();
-        AzureSettings.getSafeInstance(project).setAppInsightsLoaded(true);
     }
 
-    public static void keeepManuallyAddedList(Project project) {
+    private static void keeepManuallyAddedList(Project project) {
         List<ApplicationInsightsResource> addedList = ApplicationInsightsResourceRegistry.getAddedResources();
-        List<String> addedKeyList = new ArrayList<String>();
-        for (ApplicationInsightsResource res : addedList) {
-            addedKeyList.add(res.getInstrumentationKey());
-        }
-        List<String> inUsekeyList = MethodUtils.getInUseInstrumentationKeys(project);
-        for (String inUsekey : inUsekeyList) {
-            if (!addedKeyList.contains(inUsekey)) {
-                ApplicationInsightsResource resourceToAdd = new ApplicationInsightsResource(
-                        inUsekey, inUsekey, message("unknown"), message("unknown"),
-                        message("unknown"), message("unknown"), false);
-                addedList.add(resourceToAdd);
-            }
-        }
         ApplicationInsightsResourceRegistry.setAppInsightsResrcList(addedList);
         AzureSettings.getSafeInstance(project).saveAppInsights();
-        AzureSettings.getSafeInstance(project).setAppInsightsLoaded(true);
     }
 
     public static void refreshDataForDialog() {
         try {
             Project project = PluginUtil.getSelectedProject();
-            AzureManager manager = AzureManagerImpl.getManager(project);
-            List<Subscription> subList = manager.getSubscriptionList();
-            if (subList.size() > 0 && !AzureSettings.getSafeInstance(project).isAppInsightsLoaded()) {
-                if (manager.authenticated()) {
-                    // authenticated using AD. Proceed for updating application insights registry.
-                    updateApplicationInsightsResourceRegistry(subList, project);
-                } else {
-                    // imported publish settings file. just show manually added list from preferences
-                    // Neither clear subscription list nor show sign in dialog as user may just want to add key manually.
-                    keeepManuallyAddedList(project);
-                }
+            if (AuthMethodManager.getInstance().isSignedIn()) {
+                List<SubscriptionDetail> subList = AuthMethodManager.getInstance().getAzureManager().getSubscriptionManager().getSubscriptionDetails();
+                // authenticated using AD. Proceed for updating application insights registry.
+                updateApplicationInsightsResourceRegistry(subList, project);
+            } else {
+                // Neither clear subscription list nor show sign in dialog as user may just want to add key manually.
+                keeepManuallyAddedList(project);
             }
         } catch(Exception ex) {
             AzurePlugin.log(ex.getMessage());
@@ -334,25 +217,11 @@ public class AppInsightsMngmtPanel implements AzureAbstractConfigurablePanel {
     }
 
     private ActionListener newButtonListener() {
-        return new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                try {
-                    AzureManager manager = AzureManagerImpl.getManager(myProject);
-                    List<Subscription> subList = manager.getSubscriptionList();
-                    if (subList.size() > 0) {
-                        if (!manager.authenticated()) {
-                            // imported publish settings file.
-                            manager.clearImportedPublishSettingsFiles();
-                            WizardCacheManager.clearSubscriptions();
-                            createSubscriptionDialog(true);
-                        }
-                    } else {
-                        createSubscriptionDialog(true);
-                    }
-                    createNewDilaog();
-                } catch(Exception ex) {
-                    AzurePlugin.log(ex.getMessage(), ex);
-                }
+        return e -> {
+            try {
+                createNewDilaog();
+            } catch(Exception ex) {
+                AzurePlugin.log(ex.getMessage(), ex);
             }
         };
     }
@@ -363,17 +232,16 @@ public class AppInsightsMngmtPanel implements AzureAbstractConfigurablePanel {
                 @Override
                 public void run() {
                     ApplicationInsightsNewDialog dialog = new ApplicationInsightsNewDialog();
-                    dialog.show();
-                    if (dialog.isOK()) {
+                    dialog.setOnCreate(() -> DefaultLoader.getIdeHelper().invokeLater(() -> {
                         ApplicationInsightsResource resource = ApplicationInsightsNewDialog.getResource();
-                        if (resource != null &&
-                                !ApplicationInsightsResourceRegistry.getAppInsightsResrcList().contains(resource)) {
+                        if (resource != null && !ApplicationInsightsResourceRegistry.getAppInsightsResrcList().contains(resource)) {
                             ApplicationInsightsResourceRegistry.getAppInsightsResrcList().add(resource);
                             AzureSettings.getSafeInstance(myProject).saveAppInsights();
                             ((InsightsTableModel) insightsTable.getModel()).setResources(getTableContent());
                             ((InsightsTableModel) insightsTable.getModel()).fireTableDataChanged();
                         }
-                    }
+                    }));
+                    dialog.show();
                 }
             }, ModalityState.defaultModalityState());
         } catch(Exception ex) {
@@ -382,49 +250,61 @@ public class AppInsightsMngmtPanel implements AzureAbstractConfigurablePanel {
     }
 
     private ActionListener addButtonListener() {
-        return new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                ApplicationInsightsAddDialog dialog = new ApplicationInsightsAddDialog(myProject);
-                dialog.show();
-                if (dialog.isOK()) {
-                    ((InsightsTableModel) insightsTable.getModel()).setResources(getTableContent());
-                    ((InsightsTableModel) insightsTable.getModel()).fireTableDataChanged();
-                }
+        return e -> {
+            ApplicationInsightsAddDialog dialog = new ApplicationInsightsAddDialog(myProject);
+            dialog.show();
+            if (dialog.isOK()) {
+                ((InsightsTableModel) insightsTable.getModel()).setResources(getTableContent());
+                ((InsightsTableModel) insightsTable.getModel()).fireTableDataChanged();
             }
         };
     }
 
     private ActionListener detailsButtonListener() {
-        return new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                int index = insightsTable.getSelectedRow();
-                ApplicationInsightsResource resource = ApplicationInsightsResourceRegistry.getAppInsightsResrcList().get(index);
-                ApplicationInsightsDetailsDialog dialog = new ApplicationInsightsDetailsDialog(resource);
-                dialog.show();
-            }
+        return e -> {
+            int index = insightsTable.getSelectedRow();
+            ApplicationInsightsResource resource = ApplicationInsightsResourceRegistry.getAppInsightsResrcList().get(index);
+            ApplicationInsightsDetailsDialog dialog = new ApplicationInsightsDetailsDialog(resource);
+            dialog.show();
         };
     }
 
     private ActionListener removeButtonListener() {
-        return new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                int curSelIndex = insightsTable.getSelectedRow();
-                if (curSelIndex > -1) {
-                    String keyToRemove = ApplicationInsightsResourceRegistry.getKeyAsPerIndex(curSelIndex);
-                    String moduleName = MethodUtils.getModuleNameAsPerKey(myProject, keyToRemove);
-                    if (moduleName != null && !moduleName.isEmpty()) {
-                        PluginUtil.displayErrorDialog(message("aiErrTtl"), String.format(message("rsrcUseMsg"), moduleName));
-                    } else {
-                        int choice = Messages.showOkCancelDialog(message("rsrcRmvMsg"), message("aiErrTtl"), Messages.getQuestionIcon());
-                        if (choice == Messages.OK) {
-                            ApplicationInsightsResourceRegistry.getAppInsightsResrcList().remove(curSelIndex);
-                            AzureSettings.getSafeInstance(myProject).saveAppInsights();
-                            ((InsightsTableModel) insightsTable.getModel()).setResources(getTableContent());
-                            ((InsightsTableModel) insightsTable.getModel()).fireTableDataChanged();
-                        }
+        return e -> {
+            int curSelIndex = insightsTable.getSelectedRow();
+            if (curSelIndex > -1) {
+                String keyToRemove = ApplicationInsightsResourceRegistry.getKeyAsPerIndex(curSelIndex);
+                String moduleName = MethodUtils.getModuleNameAsPerKey(myProject, keyToRemove);
+                if (moduleName != null && !moduleName.isEmpty()) {
+                    PluginUtil.displayErrorDialog(message("aiErrTtl"), String.format(message("rsrcUseMsg"), moduleName));
+                } else {
+                    int choice = Messages.showOkCancelDialog(message("rsrcRmvMsg"), message("aiErrTtl"), Messages.getQuestionIcon());
+                    if (choice == Messages.OK) {
+                        ApplicationInsightsResourceRegistry.getAppInsightsResrcList().remove(curSelIndex);
+                        AzureSettings.getSafeInstance(myProject).saveAppInsights();
+                        ((InsightsTableModel) insightsTable.getModel()).setResources(getTableContent());
+                        ((InsightsTableModel) insightsTable.getModel()).fireTableDataChanged();
                     }
                 }
             }
+        };
+    }
+
+    private ActionListener manageSubscriptionsListener() {
+        return e -> {
+            SelectSubscriptionsAction.onShowSubscriptions(myProject);
+            loadInfoFirstTime();
+            ((InsightsTableModel) insightsTable.getModel()).setResources(getTableContent());
+            ((InsightsTableModel) insightsTable.getModel()).fireTableDataChanged();
+        };
+    }
+
+    private ActionListener signInOutListener() {
+        return e -> {
+            AzureSignInAction.onAzureSignIn(myProject);
+            loadInfoFirstTime();
+            ((InsightsTableModel) insightsTable.getModel()).setResources(getTableContent());
+            ((InsightsTableModel) insightsTable.getModel()).fireTableDataChanged();
         };
     }
 

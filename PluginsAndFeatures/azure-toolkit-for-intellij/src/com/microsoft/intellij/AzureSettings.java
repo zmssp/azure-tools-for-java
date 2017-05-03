@@ -26,14 +26,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.util.xmlb.XmlSerializerUtil;
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResource;
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResourceRegistry;
-import com.microsoft.intellij.wizards.WizardCacheManager;
-import com.microsoft.tooling.msservices.model.ws.WebSite;
-import com.microsoft.tooling.msservices.model.ws.WebSiteConfiguration;
-import com.microsoftopentechnologies.azurecommons.deploy.tasks.LoadingAccoutListener;
-import com.microsoftopentechnologies.azurecommons.deploy.util.PublishData;
-import com.microsoftopentechnologies.azurecommons.exception.RestAPIException;
-import com.microsoftopentechnologies.azurecommons.storageregistry.StorageAccount;
-import com.microsoftopentechnologies.azurecommons.storageregistry.StorageAccountRegistry;
 import org.apache.xmlbeans.impl.util.Base64;
 
 import java.io.*;
@@ -54,11 +46,6 @@ public class AzureSettings implements PersistentStateComponent<AzureSettings.Sta
 
     private State myState = new State();
 
-    private boolean subscriptionLoaded;
-    private boolean webAppLoaded;
-    private boolean appInsightsLoaded;
-    Map<String, Boolean> websiteDebugPrep = new HashMap<String, Boolean>();
-
     public static AzureSettings getSafeInstance(Project project) {
         AzureSettings settings = ServiceManager.getService(project, AzureSettings.class);
         return settings != null ? settings : new AzureSettings();
@@ -72,30 +59,6 @@ public class AzureSettings implements PersistentStateComponent<AzureSettings.Sta
     @Override
     public void loadState(State state) {
         XmlSerializerUtil.copyBean(state, myState);
-    }
-
-    public void loadStorage() {
-        try {
-            if (myState.storageAccount != null) {
-                byte[] data = Base64.decode(myState.storageAccount.getBytes());
-                ByteArrayInputStream buffer = new ByteArrayInputStream(data);
-                ObjectInput input = new ObjectInputStream(buffer);
-                try {
-                    StorageAccount[] storageAccs = (StorageAccount[]) input.readObject();
-                    for (StorageAccount str : storageAccs) {
-                        if (!StorageAccountRegistry.getStrgList().contains(str)) {
-                            StorageAccountRegistry.getStrgList().add(str);
-                        }
-                    }
-                } finally {
-                    input.close();
-                }
-            }
-        } catch (ClassNotFoundException ex) {
-            // ignore - this happens because class package changed and settings were not updated
-        } catch (Exception e) {
-            log(message("err"), e);
-        }
     }
 
     public void loadAppInsights() {
@@ -122,80 +85,6 @@ public class AzureSettings implements PersistentStateComponent<AzureSettings.Sta
         }
     }
 
-    public Map<WebSite, WebSiteConfiguration> loadWebApps() {
-        Map<WebSite, WebSiteConfiguration> map = null;
-        try {
-            if (myState.webApps != null) {
-                byte[] data = Base64.decode(myState.webApps.getBytes());
-                ByteArrayInputStream buffer = new ByteArrayInputStream(data);
-                ObjectInput input = new ObjectInputStream(buffer);
-                try {
-                    map = (Map<WebSite, WebSiteConfiguration>) input.readObject();
-                } finally {
-                    input.close();
-                }
-            }
-        } catch (ClassNotFoundException ex) {
-            // ignore - this happens because class package changed and settings were not updated
-        } catch (Exception e) {
-            log(message("err"), e);
-        }
-        return map;
-    }
-
-    public void loadPublishDatas(LoadingAccoutListener listener, Project project) {
-        try {
-            if (myState.publishProfile != null) {
-                byte[] data = Base64.decode(myState.publishProfile.getBytes());
-                ByteArrayInputStream buffer = new ByteArrayInputStream(data);
-                ObjectInput input = new ObjectInputStream(buffer);
-                try {
-                    PublishData[] publishDatas = (PublishData[]) input.readObject();
-                    listener.setNumberOfAccounts(publishDatas.length);
-                    for (PublishData pd : publishDatas) {
-                        try {
-                            WizardCacheManager.cachePublishData(null, pd, listener, project);
-                        } catch (RestAPIException e) {
-                            log(message("error"), e);
-                        }
-                    }
-                } finally {
-                    input.close();
-                }
-            }
-        } catch (IOException e) {
-            log(message("error"), e);
-        } catch (ClassNotFoundException e) {
-            // ignore - this happens because class package changed and settings were not updated
-        }
-    }
-
-    public void saveStorage() {
-        try {
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            ObjectOutput output = new ObjectOutputStream(buffer);
-            List<StorageAccount> data = StorageAccountRegistry.getStrgList();
-            /*
-             * Sort list according to storage account name.
-			 */
-            Collections.sort(data);
-            StorageAccount[] dataArray = new StorageAccount[data.size()];
-            int i = 0;
-            for (StorageAccount pd1 : data) {
-                dataArray[i] = pd1;
-                i++;
-            }
-            try {
-                output.writeObject(dataArray);
-            } finally {
-                output.close();
-            }
-            myState.storageAccount = new String(Base64.encode(buffer.toByteArray()));
-        } catch (IOException e) {
-            log(message("err"), e);
-        }
-    }
-
     public void saveAppInsights() {
         try {
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -203,14 +92,9 @@ public class AzureSettings implements PersistentStateComponent<AzureSettings.Sta
             List<ApplicationInsightsResource> data = ApplicationInsightsResourceRegistry.getAppInsightsResrcList();
             /*
 			 * Sort list according to application insights resource name.
+			 * Save only manually added resources
 			 */
-            Collections.sort(data);
-            ApplicationInsightsResource[] dataArray = new ApplicationInsightsResource[data.size()];
-            int i = 0;
-            for (ApplicationInsightsResource pd1 : data) {
-                dataArray[i] = pd1;
-                i++;
-            }
+            ApplicationInsightsResource[] dataArray = data.stream().filter(a -> !a.isImported()).sorted().toArray(ApplicationInsightsResource[]::new);
             try {
                 output.writeObject(dataArray);
             } finally {
@@ -219,43 +103,6 @@ public class AzureSettings implements PersistentStateComponent<AzureSettings.Sta
             myState.appInsights = new String(Base64.encode(buffer.toByteArray()));
         } catch (IOException e) {
             log(message("err"), e);
-        }
-    }
-
-    public void saveWebApps(Map<WebSite, WebSiteConfiguration> map) {
-        try {
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            ObjectOutput output = new ObjectOutputStream(buffer);
-            try {
-                output.writeObject(map);
-            } finally {
-                output.close();
-            }
-            myState.webApps = new String(Base64.encode(buffer.toByteArray()));
-        } catch (IOException e) {
-            log(message("err"), e);
-        }
-    }
-
-    public void savePublishDatas() {
-        try {
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            ObjectOutput output = new ObjectOutputStream(buffer);
-            Collection<PublishData> data = WizardCacheManager.getPublishDatas();
-            PublishData[] dataArray = new PublishData[data.size()];
-            int i = 0;
-            for (PublishData pd1 : data) {
-                dataArray[i] = new PublishData();
-                dataArray[i++].setPublishProfile(pd1.getPublishProfile());
-            }
-            try {
-                output.writeObject(dataArray);
-            } finally {
-                output.close();
-            }
-            myState.publishProfile = new String(Base64.encode(buffer.toByteArray()));
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
@@ -277,38 +124,6 @@ public class AzureSettings implements PersistentStateComponent<AzureSettings.Sta
 
     public boolean isPropertySet(String name) {
         return myState.properties.containsKey(name);
-    }
-
-    public boolean isSubscriptionLoaded() {
-        return subscriptionLoaded;
-    }
-
-    public void setSubscriptionLoaded(boolean subscriptionLoaded) {
-        this.subscriptionLoaded = subscriptionLoaded;
-    }
-
-    public boolean iswebAppLoaded() {
-        return webAppLoaded;
-    }
-
-    public void setwebAppLoaded(boolean webAppLoaded) {
-        this.webAppLoaded = webAppLoaded;
-    }
-
-    public boolean isAppInsightsLoaded() {
-        return appInsightsLoaded;
-    }
-
-    public void setAppInsightsLoaded(boolean appInsightsLoaded) {
-        this.appInsightsLoaded = appInsightsLoaded;
-    }
-
-    public Map<String, Boolean> getWebsiteDebugPrep() {
-        return websiteDebugPrep;
-    }
-
-    public void setWebsiteDebugPrep(Map<String, Boolean> websiteDebugPrep) {
-        this.websiteDebugPrep = websiteDebugPrep;
     }
 
     public String[] getProperties(String name) {

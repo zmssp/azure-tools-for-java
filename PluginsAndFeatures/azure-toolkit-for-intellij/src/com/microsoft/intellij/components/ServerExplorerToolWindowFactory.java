@@ -21,7 +21,6 @@
  */
 package com.microsoft.intellij.components;
 
-import com.intellij.icons.AllIcons;
 import com.intellij.ide.util.treeView.NodeRenderer;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -34,19 +33,21 @@ import com.intellij.openapi.wm.ex.ToolWindowEx;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.treeStructure.Tree;
 import com.microsoft.azure.hdinsight.common.HDInsightUtil;
-import com.microsoft.intellij.AzureSettings;
-import com.microsoft.intellij.forms.ManageSubscriptionPanel;
+import com.microsoft.azuretools.authmanage.AuthMethodManager;
+import com.microsoft.azuretools.ijidea.actions.AzureSignInAction;
+import com.microsoft.azuretools.ijidea.actions.SelectSubscriptionsAction;
+import com.microsoft.intellij.AzurePlugin;
 import com.microsoft.intellij.helpers.UIHelperImpl;
-import com.microsoft.intellij.ui.components.DefaultDialogWrapper;
-import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
+import com.microsoft.intellij.serviceexplorer.azure.AzureModuleImpl;
+import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.helpers.collections.ListChangeListener;
 import com.microsoft.tooling.msservices.helpers.collections.ListChangedEvent;
 import com.microsoft.tooling.msservices.helpers.collections.ObservableList;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeAction;
-import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureServiceModule;
+import com.microsoft.tooling.msservices.serviceexplorer.RefreshableNode;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureModule;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import javax.swing.tree.*;
@@ -70,12 +71,12 @@ public class ServerExplorerToolWindowFactory implements ToolWindowFactory, Prope
     @Override
     public void createToolWindowContent(@NotNull final Project project, @NotNull final ToolWindow toolWindow) {
         // initialize azure service module
-        AzureServiceModule azureServiceModule = new AzureServiceModule(project, false);
+        AzureModule azureModule = new AzureModuleImpl(project);
 
-        HDInsightUtil.setHDInsightRootModule(azureServiceModule);
+        HDInsightUtil.setHDInsightRootModule(azureModule);
 
         // initialize with all the service modules
-        DefaultTreeModel treeModel = new DefaultTreeModel(initRoot(project, azureServiceModule));
+        DefaultTreeModel treeModel = new DefaultTreeModel(initRoot(project, azureModule));
         treeModelMap.put(project, treeModel);
 
         // initialize tree
@@ -96,25 +97,22 @@ public class ServerExplorerToolWindowFactory implements ToolWindowFactory, Prope
         toolWindow.getComponent().add(new JBScrollPane(tree));
 
         // setup toolbar icons
-        addToolbarItems(toolWindow, azureServiceModule);
+        addToolbarItems(toolWindow, azureModule);
 
-        try {
-            azureServiceModule.registerSubscriptionsChanged();
-        } catch (AzureCmdException ignored) {
-        }
+//        try {
+//            azureModule.registerSubscriptionsChanged();
+//        } catch (AzureCmdException ignored) {
+//        }
     }
 
-    private DefaultMutableTreeNode initRoot(Project project, AzureServiceModule azureServiceModule) {
+    private DefaultMutableTreeNode initRoot(Project project, AzureModule azureModule) {
         DefaultMutableTreeNode root = new DefaultMutableTreeNode();
 
         // add the azure service root service module
-        root.add(createTreeNode(azureServiceModule, project));
+        root.add(createTreeNode(azureModule, project));
 
         // kick-off asynchronous load of child nodes on all the modules
-        if (AzureSettings.getSafeInstance(project).iswebAppLoaded()) {
-            AzureServiceModule.webSiteConfigMap = AzureSettings.getSafeInstance(project).loadWebApps();
-        }
-        azureServiceModule.load();
+        azureModule.load(false);
 
         return root;
     }
@@ -157,7 +155,7 @@ public class ServerExplorerToolWindowFactory implements ToolWindowFactory, Prope
 //            menuItem.setIconTextGap(16);
             menuItem.setEnabled(nodeAction.isEnabled());
             if (nodeAction.getIconPath() != null) {
-                menuItem.setIcon(loadIcon(nodeAction.getIconPath()));
+                menuItem.setIcon(UIHelperImpl.loadIcon(nodeAction.getIconPath()));
             }
             // delegate the menu item click to the node action's listeners
             menuItem.addActionListener(new ActionListener() {
@@ -283,8 +281,9 @@ public class ServerExplorerToolWindowFactory implements ToolWindowFactory, Prope
                     }
                     break;
             }
-
-            treeModelMap.get(project).reload(treeNode);
+            if (treeModelMap.get(project)!= null) {
+                treeModelMap.get(project).reload(treeNode);
+            }
         }
     }
 
@@ -317,51 +316,46 @@ public class ServerExplorerToolWindowFactory implements ToolWindowFactory, Prope
 
             String iconPath = node.getIconPath();
             if (iconPath != null && !iconPath.isEmpty()) {
-                setIcon(loadIcon(iconPath));
+                setIcon(UIHelperImpl.loadIcon(iconPath));
             }
 
             // setup a tooltip
-            setToolTipText(node.getName());
+            setToolTipText(node.getToolTip());
         }
     }
 
-    private void addToolbarItems(ToolWindow toolWindow, final AzureServiceModule azureServiceModule) {
+    private void addToolbarItems(ToolWindow toolWindow, final AzureModule azureModule) {
         if (toolWindow instanceof ToolWindowEx) {
             ToolWindowEx toolWindowEx = (ToolWindowEx) toolWindow;
+            try {
+                Runnable forceRefreshTitleActions = () -> {
+                    try {
+                        toolWindowEx.setTitleActions(
+                            new AnAction("Refresh", "Refresh Azure Nodes List", null) {
+                                @Override
+                                public void actionPerformed(AnActionEvent event) {
+                                    azureModule.load(true);
+                                }
 
-            toolWindowEx.setTitleActions(
-                    new AnAction("Refresh", "Refresh Service List", UIHelperImpl.loadIcon("refresh.png")) {
-                        @Override
-                        public void actionPerformed(AnActionEvent event) {
-                            AzureServiceModule.webSiteConfigMap = null;
-                            azureServiceModule.load();
-                        }
-                    },
-                    new AnAction("Manage Subscriptions", "Manage Subscriptions", AllIcons.Ide.Link) {
-                        @Override
-                        public void actionPerformed(AnActionEvent anActionEvent) {
-                            final ManageSubscriptionPanel manageSubscriptionPanel = new ManageSubscriptionPanel(anActionEvent.getProject(), true);
-                            final DefaultDialogWrapper subscriptionsDialog = new DefaultDialogWrapper(anActionEvent.getProject(),
-                                    manageSubscriptionPanel) {
-                                @Nullable
                                 @Override
-                                protected JComponent createSouthPanel() {
-                                    return null;
+                                public void update(AnActionEvent e) {
+                                    boolean isDarkTheme = DefaultLoader.getUIHelper().isDarkTheme();
+                                    e.getPresentation().setIcon(UIHelperImpl.loadIcon(isDarkTheme ?
+                                        RefreshableNode.REFRESH_ICON_DARK : RefreshableNode.REFRESH_ICON_LIGHT));
                                 }
-                                @Override
-                                protected JComponent createTitlePane() {
-                                    return null;
-                                }
-                            };
-                            manageSubscriptionPanel.setDialog(subscriptionsDialog);
-                            subscriptionsDialog.show();
-                        }
-                    });
+                            },
+                            new AzureSignInAction(),
+                            new SelectSubscriptionsAction());
+                    } catch (Exception e) {
+                        AzurePlugin.log(e.getMessage(), e);
+                    }
+                };
+                AuthMethodManager.getInstance().addSignInEventListener(forceRefreshTitleActions);
+                AuthMethodManager.getInstance().addSignOutEventListener(forceRefreshTitleActions);
+                forceRefreshTitleActions.run();
+            } catch (Exception e) {
+                AzurePlugin.log(e.getMessage(), e);
+            }
         }
-    }
-
-    private ImageIcon loadIcon(String iconPath) {
-        URL url = NodeTreeCellRenderer.class.getResource("/icons/" + iconPath);
-        return new ImageIcon(url);
     }
 }

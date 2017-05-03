@@ -23,7 +23,6 @@ import org.eclipse.osgi.util.NLS;
 
 public final class Messages extends NLS {
 	private static final String BUNDLE_NAME = "com.microsoft.applicationinsights.preference.messages";
-	public static String imprtAzureLbl;
 	public static String resrcName;
 	public static String instrKey;
 	public static String btnNewLbl;
@@ -59,6 +58,7 @@ public final class Messages extends NLS {
 	public static String callBackErr;
 	public static String noAuthErr;
 	public static String timeOutErr1;
+	public static String err;
 
 	static {
 		// initialize resource bundle

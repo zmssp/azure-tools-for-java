@@ -22,68 +22,72 @@
 package com.microsoft.intellij.wizards;
 
 import com.intellij.openapi.application.ApplicationNamesInfo;
+import com.intellij.openapi.project.Project;
+import com.intellij.ui.JBColor;
 import com.intellij.ui.wizard.WizardModel;
-import com.microsoft.tooling.msservices.model.Subscription;
-import com.microsoft.tooling.msservices.model.storage.StorageAccount;
-import com.microsoft.tooling.msservices.model.vm.VirtualMachineImage;
-import com.microsoft.tooling.msservices.model.vm.VirtualMachineSize;
+import com.microsoft.azure.management.compute.AvailabilitySet;
+import com.microsoft.azure.management.compute.VirtualMachineImage;
+import com.microsoft.azure.management.network.Network;
+import com.microsoft.azure.management.network.NetworkSecurityGroup;
+import com.microsoft.azure.management.network.PublicIPAddress;
+import com.microsoft.azure.management.resources.Location;
+import com.microsoft.azure.management.storage.StorageAccount;
+import com.microsoft.azuretools.authmanage.models.SubscriptionDetail;
+import com.microsoft.intellij.wizards.createarmvm.MachineSettingsStep;
+import com.microsoft.intellij.wizards.createarmvm.SelectImageStep;
+import com.microsoft.intellij.wizards.createarmvm.SettingsStep;
+import com.microsoft.intellij.wizards.createarmvm.SubscriptionStep;
 import com.microsoft.tooling.msservices.model.vm.VirtualNetwork;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.vmarm.VMArmModule;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
-import java.text.SimpleDateFormat;
 
-public abstract class VMWizardModel extends WizardModel {
-    private final String BASE_HTML_VM_IMAGE = "<html>\n" +
-            "<body style=\"padding: 5px; width: 250px\">\n" +
-            "    <p style=\"font-family: 'Segoe UI';font-size: 14pt;font-weight: bold;\">#TITLE#</p>\n" +
-            "    <p style=\"font-family: 'Segoe UI';font-size: 11pt; width:200px \">#DESCRIPTION#</p>\n" +
-            "    <p>\n" +
-            "        <table style='width:200px'>\n" +
-            "            <tr>\n" +
-            "                <td style=\"font-family: 'Segoe UI';font-size: 12pt;width:60px;vertical-align:top;\"><b>PUBLISHED</b></td>\n" +
-            "                <td style=\"font-family: 'Segoe UI';font-size: 12pt;\">#PUBLISH_DATE#</td>\n" +
-            "            </tr>\n" +
-            "            <tr>\n" +
-            "                <td style=\"font-family: 'Segoe UI';font-size: 12pt;vertical-align:top;\"><b>PUBLISHER</b></td>\n" +
-            "                <td style=\"font-family: 'Segoe UI';font-size: 12pt;\">#PUBLISH_NAME#</td>\n" +
-            "            </tr>\n" +
-            "            <tr>\n" +
-            "                <td style=\"font-family: 'Segoe UI';font-size: 12pt;vertical-align:top;\"><b>OS FAMILY</b></td>\n" +
-            "                <td style =\"font-family: 'Segoe UI';font-size: 12pt;\">#OS#</td>\n" +
-            "            </tr>\n" +
-            "            <tr>\n" +
-            "                <td style=\"font-family: 'Segoe UI';font-size: 12pt;v-align:top;font-weight:bold;\">LOCATION</td>\n" +
-            "                <td style=\"font-family: 'Segoe UI';font-size: 12pt;\">#LOCATION#</td>\n" +
-            "            </tr>\n" +
-            "        </table>\n" +
-            "    </p>\n" +
-            "    #PRIVACY#\n" +
-            "    #LICENCE#\n" +
-            "</body>\n" +
-            "</html>";
-
-    private Subscription subscription;
+public class VMWizardModel extends WizardModel {
+    private Location region;
+    private VirtualMachineImage virtualMachineImage;
+    private boolean isKnownMachineImage;
+    private Object knownMachineImage;
+    private Network virtualNetwork;
+    private VirtualNetwork newNetwork;
+    private boolean withNewNetwork;
+    private StorageAccount storageAccount;
+    private com.microsoft.tooling.msservices.model.storage.StorageAccount newStorageAccount;
+    private boolean withNewStorageAccount;
+    //    private String availabilitySet;
+    private PublicIPAddress publicIpAddress;
+    private boolean withNewPip;
+    private NetworkSecurityGroup networkSecurityGroup;
+    private AvailabilitySet availabilitySet;
+    private boolean withNewAvailabilitySet;
     private String name;
-    private VirtualMachineSize size;
+    private String size;
     private String userName;
     private String password;
     private String certificate;
     private String subnet;
+    private SubscriptionDetail subscription;
 
-    public VMWizardModel() {
+    public VMWizardModel(VMArmModule node) {
         super(ApplicationNamesInfo.getInstance().getFullProductName() + " - Create new Virtual Machine");
+        Project project = (Project) node.getProject();
+
+        add(new SubscriptionStep(this, project));
+        add(new SelectImageStep(this, project));
+        add(new MachineSettingsStep(this, project));
+        add(new SettingsStep(this, project, node));
     }
 
-    public void setSubscription(Subscription subscription) {
-        this.subscription = subscription;
-    }
-
-    public Subscription getSubscription() {
-        return subscription;
+    public String[] getStepTitleList() {
+        return new String[]{
+                "Subscription",
+                "Select Image",
+                "Machine Settings",
+                "Associated Resources"
+        };
     }
 
     public void configStepList(JList jList, int step) {
@@ -106,29 +110,7 @@ public abstract class VMWizardModel extends WizardModel {
         for (MouseMotionListener mouseMotionListener : jList.getMouseMotionListeners()) {
             jList.removeMouseMotionListener(mouseMotionListener);
         }
-    }
-
-    public abstract String[] getStepTitleList();
-
-    public String getHtmlFromVMImage(VirtualMachineImage virtualMachineImage) {
-        String html = BASE_HTML_VM_IMAGE;
-        html = html.replace("#TITLE#", virtualMachineImage.getLabel());
-        html = html.replace("#DESCRIPTION#", virtualMachineImage.getDescription());
-        html = html.replace("#PUBLISH_DATE#", new SimpleDateFormat("dd-M-yyyy").format(virtualMachineImage.getPublishedDate().getTime()));
-        html = html.replace("#PUBLISH_NAME#", virtualMachineImage.getPublisherName());
-        html = html.replace("#OS#", virtualMachineImage.getOperatingSystemType());
-        html = html.replace("#LOCATION#", virtualMachineImage.getLocation());
-
-        html = html.replace("#PRIVACY#", virtualMachineImage.getPrivacyUri().isEmpty()
-                ? ""
-                : "<p><a href='" + virtualMachineImage.getPrivacyUri() + "' style=\"font-family: 'Segoe UI';font-size: 12pt;\">Privacy statement</a></p>");
-
-
-        html = html.replace("#LICENCE#", virtualMachineImage.getEulaUri().isEmpty()
-                ? ""
-                : "<p><a href='" + virtualMachineImage.getEulaUri() + "' style=\"font-family: 'Segoe UI';font-size: 12pt;\">Licence agreement</a></p>");
-
-        return html;
+        jList.setBackground(JBColor.background());
     }
 
     public String getSubnet() {
@@ -147,11 +129,11 @@ public abstract class VMWizardModel extends WizardModel {
         this.name = name;
     }
 
-    public VirtualMachineSize getSize() {
+    public String getSize() {
         return size;
     }
 
-    public void setSize(VirtualMachineSize size) {
+    public void setSize(String size) {
         this.size = size;
     }
 
@@ -177,5 +159,133 @@ public abstract class VMWizardModel extends WizardModel {
 
     public void setCertificate(String certificate) {
         this.certificate = certificate;
+    }
+
+    public void setSubscription(SubscriptionDetail subscription) {
+        this.subscription = subscription;
+    }
+
+    public SubscriptionDetail getSubscription() {
+        return subscription;
+    }
+
+    public VirtualMachineImage getVirtualMachineImage() {
+        return virtualMachineImage;
+    }
+
+    public void setVirtualMachineImage(VirtualMachineImage virtualMachineImage) {
+        this.virtualMachineImage = virtualMachineImage;
+    }
+
+    public boolean isKnownMachineImage() {
+        return isKnownMachineImage;
+    }
+
+    public void setKnownMachineImage(boolean knownMachineImage) {
+        this.isKnownMachineImage = knownMachineImage;
+    }
+
+    public Object getKnownMachineImage() {
+        return knownMachineImage;
+    }
+
+    public void setKnownMachineImage(Object knownMachineImage) {
+        this.knownMachineImage = knownMachineImage;
+    }
+
+    public Location getRegion() {
+        return region;
+    }
+
+    public void setRegion(Location region) {
+        this.region = region;
+    }
+
+    public Network getVirtualNetwork() {
+        return virtualNetwork;
+    }
+
+    public void setVirtualNetwork(Network virtualNetwork) {
+        this.virtualNetwork = virtualNetwork;
+    }
+
+    public VirtualNetwork getNewNetwork() {
+        return newNetwork;
+    }
+
+    public void setNewNetwork(VirtualNetwork newNetwork) {
+        this.newNetwork = newNetwork;
+    }
+
+    public boolean isWithNewNetwork() {
+        return withNewNetwork;
+    }
+
+    public void setWithNewNetwork(boolean withNewNetwork) {
+        this.withNewNetwork = withNewNetwork;
+    }
+
+    public StorageAccount getStorageAccount() {
+        return storageAccount;
+    }
+
+    public void setStorageAccount(StorageAccount storageAccount) {
+        this.storageAccount = storageAccount;
+    }
+
+    public com.microsoft.tooling.msservices.model.storage.StorageAccount getNewStorageAccount() {
+        return newStorageAccount;
+    }
+
+    public void setNewStorageAccount(com.microsoft.tooling.msservices.model.storage.StorageAccount newStorageAccount) {
+        this.newStorageAccount = newStorageAccount;
+    }
+
+    public boolean isWithNewStorageAccount() {
+        return withNewStorageAccount;
+    }
+
+    public void setWithNewStorageAccount(boolean withNewStorageAccount) {
+        this.withNewStorageAccount = withNewStorageAccount;
+    }
+
+    public PublicIPAddress getPublicIpAddress() {
+        return publicIpAddress;
+    }
+
+    public void setPublicIpAddress(PublicIPAddress publicIpAddress) {
+        this.publicIpAddress = publicIpAddress;
+    }
+
+    public boolean isWithNewPip() {
+        return withNewPip;
+    }
+
+    public void setWithNewPip(boolean withNewPip) {
+        this.withNewPip = withNewPip;
+    }
+
+    public NetworkSecurityGroup getNetworkSecurityGroup() {
+        return networkSecurityGroup;
+    }
+
+    public void setNetworkSecurityGroup(NetworkSecurityGroup networkSecurityGroup) {
+        this.networkSecurityGroup = networkSecurityGroup;
+    }
+
+    public AvailabilitySet getAvailabilitySet() {
+        return availabilitySet;
+    }
+
+    public void setAvailabilitySet(AvailabilitySet availabilitySet) {
+        this.availabilitySet = availabilitySet;
+    }
+
+    public boolean isWithNewAvailabilitySet() {
+        return withNewAvailabilitySet;
+    }
+
+    public void setWithNewAvailabilitySet(boolean withNewAvailabilitySet) {
+        this.withNewAvailabilitySet = withNewAvailabilitySet;
     }
 }

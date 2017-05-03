@@ -29,11 +29,13 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.microsoft.azure.hdinsight.jobs.framework.JobViewEditorProvider;
-import com.microsoft.azure.hdinsight.jobs.framework.JobViewPanel;
 import com.microsoft.azure.hdinsight.sdk.cluster.IClusterDetail;
+import com.microsoft.azure.hdinsight.spark.jobs.framework.JobViewPanel;
+import com.microsoft.intellij.hdinsight.messages.HDInsightBundle;
+import com.microsoft.intellij.util.AppInsightsCustomEvent;
 import com.microsoft.intellij.util.PluginUtil;
-import com.microsoft.tooling.msservices.helpers.NotNull;
-import com.microsoft.tooling.msservices.helpers.Nullable;
+import com.microsoft.azuretools.azurecommons.helpers.NotNull;
+import com.microsoft.azuretools.azurecommons.helpers.Nullable;
 
 import javax.swing.*;
 import java.beans.PropertyChangeListener;
@@ -58,6 +60,7 @@ public class JobViewEditor implements FileEditor {
         myVirtualFile = file;
         uuid = file.getUserData(JobViewEditorProvider.JOB_VIEW_UUID);
         myComponent = new JobViewPanel(PluginUtil.getPluginRootDirectory(), uuid);
+
     }
 
     @NotNull
@@ -139,7 +142,7 @@ public class JobViewEditor implements FileEditor {
 
     @Override
     public void dispose() {
-
+        AppInsightsCustomEvent.create(HDInsightBundle.message("HDInsight.SParkJobView.Close"), null);
     }
 
     @Nullable

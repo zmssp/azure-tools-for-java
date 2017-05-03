@@ -30,43 +30,49 @@ import com.intellij.openapi.project.Project;
 import com.intellij.ui.ListCellRendererWrapper;
 import com.intellij.ui.wizard.WizardNavigationState;
 import com.intellij.ui.wizard.WizardStep;
+import com.microsoft.azure.management.Azure;
 import com.microsoft.azure.management.compute.AvailabilitySet;
 import com.microsoft.azure.management.network.Network;
 import com.microsoft.azure.management.network.NetworkSecurityGroup;
-import com.microsoft.azure.management.network.PublicIpAddress;
+import com.microsoft.azure.management.network.PublicIPAddress;
+import com.microsoft.azure.management.resources.ResourceGroup;
+import com.microsoft.azure.management.resources.fluentcore.model.Creatable;
 import com.microsoft.azure.management.storage.Kind;
 import com.microsoft.azure.management.storage.SkuName;
+import com.microsoft.azure.management.storage.StorageAccount;
+import com.microsoft.azuretools.authmanage.AuthMethodManager;
+import com.microsoft.azuretools.sdkmanage.AzureManager;
+import com.microsoft.azuretools.utils.AzureModel;
+import com.microsoft.azuretools.utils.AzureModelController;
 import com.microsoft.intellij.AzurePlugin;
 import com.microsoft.intellij.forms.CreateArmStorageAccountForm;
-import com.microsoft.intellij.util.PluginUtil;
+import com.microsoft.intellij.forms.CreateVirtualNetworkForm;
+import com.microsoft.intellij.wizards.VMWizardModel;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
-import com.microsoft.tooling.msservices.helpers.azure.AzureArmManagerImpl;
-import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
-import com.microsoft.tooling.msservices.model.storage.ArmStorageAccount;
-import com.microsoft.tooling.msservices.model.storage.StorageAccount;
-import com.microsoft.tooling.msservices.model.vm.VirtualMachine;
+import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
+import com.microsoft.tooling.msservices.helpers.azure.sdk.AzureSDKManager;
 import com.microsoft.tooling.msservices.model.vm.VirtualNetwork;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
-import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.microsoft.intellij.ui.messages.AzureBundle.message;
 
-public class SettingsStep extends WizardStep<CreateVMWizardModel> {
+public class SettingsStep extends WizardStep<VMWizardModel> {
     private static final String CREATE_NEW = "<< Create new >>";
     private final String NONE = "(None)";
 
     private final Node parent;
     private Project project;
-    private CreateVMWizardModel model;
+    private VMWizardModel model;
     private JPanel rootPanel;
     private JList createVmStepsList;
     private JEditorPane imageDescriptionTextPane;
@@ -77,18 +83,20 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
     private JRadioButton createNewRadioButton;
     private JRadioButton useExistingRadioButton;
     private JTextField resourceGrpField;
-    private JComboBox resourceGrpCombo;
+    private JComboBox<String> resourceGrpCombo;
     private JComboBox pipCombo;
     private JComboBox nsgCombo;
 
     private List<Network> virtualNetworks;
 
-    private Map<String, ArmStorageAccount> storageAccounts;
-    private List<PublicIpAddress> publicIpAddresses;
+    private Map<String, StorageAccount> storageAccounts;
+    private List<PublicIPAddress> publicIpAddresses;
     private List<NetworkSecurityGroup> networkSecurityGroups;
     private List<AvailabilitySet> availabilitySets;
 
-    public SettingsStep(final CreateVMWizardModel model, Project project, Node parent) {
+    private Azure azure;
+
+    public SettingsStep(final VMWizardModel model, Project project, Node parent) {
         super("Settings", null, null);
 
         this.parent = parent;
@@ -103,19 +111,19 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         final ItemListener updateListener = new ItemListener() {
             public void itemStateChanged(final ItemEvent e) {
                 final boolean isNewGroup = createNewRadioButton.isSelected();
-                resourceGrpField.setVisible(isNewGroup);
-                resourceGrpCombo.setVisible(!isNewGroup);
+                resourceGrpField.setEnabled(isNewGroup);
+                resourceGrpCombo.setEnabled(!isNewGroup);
             }
         };
         createNewRadioButton.addItemListener(updateListener);
-        createNewRadioButton.addItemListener(updateListener);
+        useExistingRadioButton.addItemListener(updateListener);
 
         storageComboBox.setRenderer(new ListCellRendererWrapper<Object>() {
             @Override
             public void customize(JList jList, Object o, int i, boolean b, boolean b1) {
                 if (o instanceof StorageAccount) {
                     StorageAccount sa = (StorageAccount) o;
-                    setText(String.format("%s (%s)", sa.getName(), sa.getLocation()));
+                    setText(String.format("%s (%s)", sa.name(), sa.resourceGroupName()));
                 }
             }
         });
@@ -130,9 +138,8 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         networkComboBox.setRenderer(new ListCellRendererWrapper<Object>() {
             @Override
             public void customize(JList jList, Object o, int i, boolean b, boolean b1) {
-                if (o instanceof VirtualNetwork) {
-                    VirtualNetwork vn = (VirtualNetwork) o;
-                    setText(String.format("%s (%s)", vn.getName(), vn.getLocation()));
+                if (o instanceof Network) {
+                    setText(String.format("%s (%s)", ((Network) o).name(), ((Network) o).resourceGroupName()));
                 }
             }
         });
@@ -148,13 +155,12 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         pipCombo.setRenderer(new ListCellRendererWrapper<Object>() {
             @Override
             public void customize(JList jList, Object o, int i, boolean b, boolean b1) {
-                if (o instanceof PublicIpAddress) {
-                    PublicIpAddress pip = (PublicIpAddress) o;
-                    setText(String.format("%s (%s)", pip.name(), pip.region()));
+                if (o instanceof PublicIPAddress) {
+                    PublicIPAddress pip = (PublicIPAddress) o;
+                    setText(String.format("%s (%s)", pip.name(), pip.resourceGroupName()));
                 }
             }
         });
-
         nsgCombo.setRenderer(new ListCellRendererWrapper<Object>() {
             @Override
             public void customize(JList jList, Object o, int i, boolean b, boolean b1) {
@@ -163,15 +169,21 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
                 }
             }
         });
+        availabilityComboBox.setRenderer(new ListCellRendererWrapper<Object>() {
+            @Override
+            public void customize(JList jList, Object o, int i, boolean b, boolean b1) {
+                if (o instanceof AvailabilitySet) {
+                    setText(((AvailabilitySet) o).name());
+                }
+            }
+        });
     }
 
     private void fillResourceGroups() {
-        try {
-            resourceGrpCombo.setModel(
-                    new DefaultComboBoxModel(AzureArmManagerImpl.getManager(project).getResourceGroups(model.getSubscription().getId()).toArray()));
-        } catch (AzureCmdException ex) {
-            PluginUtil.displayErrorDialogAndLog(message("errTtl"), "Error loading resource groups", ex);
-        }
+        // Resource groups already initialized in cache when loading locations on SelectImageStep
+        List<ResourceGroup> groups = AzureModel.getInstance().getSubscriptionToResourceGroupMap().get(model.getSubscription());
+        List<String> sortedGroups = groups.stream().map(ResourceGroup::name).sorted().collect(Collectors.toList());
+        resourceGrpCombo.setModel(new DefaultComboBoxModel<>(sortedGroups.toArray(new String[sortedGroups.size()])));
     }
 
     @Override
@@ -179,7 +191,12 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         rootPanel.revalidate();
 
         model.getCurrentNavigationState().NEXT.setEnabled(false);
-
+        try {
+            AzureManager azureManager = AuthMethodManager.getInstance().getAzureManager();
+            azure = azureManager.getAzure(model.getSubscription().getSubscriptionId());
+        } catch (Exception ex) {
+            DefaultLoader.getUIHelper().logError("An error occurred when trying to authenticate\n\n" + ex.getMessage(), ex);
+        }
         fillResourceGroups();
         retrieveStorageAccounts();
         retrieveVirtualNetworks();
@@ -196,14 +213,7 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
             public void run(@NotNull ProgressIndicator progressIndicator) {
                 progressIndicator.setIndeterminate(true);
                 if (virtualNetworks == null) {
-                    try {
-                        virtualNetworks = AzureArmManagerImpl.getManager(project).getVirtualNetworks(model.getSubscription().getId());
-                    } catch (AzureCmdException e) {
-                        virtualNetworks = null;
-                        String msg = "An error occurred while attempting to retrieve the virtual networks list." + "<br>" + String.format(message("webappExpMsg"), e.getMessage());
-                        PluginUtil.displayErrorDialogInAWTAndLog(message("errTtl"), msg, e);
-                        return;
-                    }
+                    virtualNetworks = azure.networks().list();
                 }
                 ApplicationManager.getApplication().invokeLater(new Runnable() {
                     @Override
@@ -221,10 +231,14 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
                                           final DefaultComboBoxModel loadingVNModel = new DefaultComboBoxModel(new String[]{CREATE_NEW, "<Loading...>"}) {
                                               @Override
                                               public void setSelectedItem(Object o) {
+                                                  super.setSelectedItem(o);
                                                   if (CREATE_NEW.equals(o)) {
-//                    showNewVirtualNetworkForm();
+                                                      showNewVirtualNetworkForm();
+//                                                      model.setWithNewNetwork(true);
+//                                                      model.setVirtualNetwork(null);
+//                                                      model.setSubnet(null);
                                                   } else {
-                                                      super.setSelectedItem(o);
+//                                                      super.setSelectedItem(o);
                                                       model.setVirtualNetwork((Network) o);
                                                   }
                                               }
@@ -243,44 +257,53 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         DefaultComboBoxModel refreshedVNModel = new DefaultComboBoxModel(filterVN().toArray()) {
             @Override
             public void setSelectedItem(final Object o) {
-                if (NONE.equals(o)) {
-                    removeElement(o);
-                    setSelectedItem(null);
+                super.setSelectedItem(o);
+                if (CREATE_NEW.equals(o)) {
+                    showNewVirtualNetworkForm();
+//                    model.setWithNewNetwork(true);
+//                    model.setVirtualNetwork(null);
+//                    model.setSubnet(null);
                 } else {
-                    super.setSelectedItem(o);
-
+//                    super.setSelectedItem(o);
                     if (o instanceof Network) {
-                        model.setVirtualNetwork((Network) o);
-
-                        if (getIndexOf(NONE) == -1) {
-                            insertElementAt(NONE, 0);
+                        if (((DefaultComboBoxModel) networkComboBox.getModel()).getIndexOf(CREATE_NEW) > 0) {
+                            // new virtual network name at 0 position
+                            ((DefaultComboBoxModel) networkComboBox.getModel()).removeElementAt(0);
                         }
-
+                        model.setWithNewNetwork(false);
+                        model.setVirtualNetwork((Network) o);
+                        model.setNewNetwork(null);
                         ApplicationManager.getApplication().invokeAndWait(new Runnable() {
                             @Override
                             public void run() {
+                                subnetComboBox.setEnabled(false);
                                 boolean validSubnet = false;
-
                                 subnetComboBox.removeAllItems();
-
                                 for (String subnet : ((Network) o).subnets().keySet()) {
                                     subnetComboBox.addItem(subnet);
-
                                     if (subnet.equals(selectedSN)) {
                                         validSubnet = true;
                                     }
                                 }
-
                                 if (validSubnet) {
                                     subnetComboBox.setSelectedItem(selectedSN);
                                 } else {
                                     model.setSubnet(null);
                                     subnetComboBox.setSelectedItem(null);
                                 }
-
                                 subnetComboBox.setEnabled(true);
                             }
                         }, ModalityState.any());
+                    } else if (o instanceof String) {
+                        // new virtual network
+                        if (model.getNewNetwork() != null) {
+                            subnetComboBox.setEnabled(false);
+                            subnetComboBox.removeAllItems();
+                            subnetComboBox.addItem(model.getNewNetwork().subnet.name);
+                            subnetComboBox.setSelectedIndex(0);
+                            model.setSubnet(model.getNewNetwork().subnet.name);
+                        }
+
                     } else {
                         model.setVirtualNetwork(null);
 
@@ -296,7 +319,9 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
             }
         };
 
-        if (selectedVN != null && virtualNetworks.contains(selectedVN)/* && (cascade || selectedCS != null)*/) {
+        refreshedVNModel.insertElementAt(CREATE_NEW, 0);
+
+        if (selectedVN != null && virtualNetworks.contains(selectedVN)) {
             refreshedVNModel.setSelectedItem(selectedVN);
         } else {
             model.setVirtualNetwork(null);
@@ -310,7 +335,7 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         List<Network> filteredNetworks = new ArrayList<>();
 
         for (Network network : virtualNetworks) {
-            if (network.region().equals(model.getRegion())) {
+            if (network.regionName() != null && network.regionName().equals(model.getRegion().name())) {
                 filteredNetworks.add(network);
             }
         }
@@ -323,20 +348,11 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
             public void run(@NotNull ProgressIndicator progressIndicator) {
                 progressIndicator.setIndeterminate(true);
                 if (storageAccounts == null) {
-                    try {
-                        java.util.List<ArmStorageAccount> accounts = AzureArmManagerImpl.getManager(project).getStorageAccounts(model.getSubscription().getId());
-                        storageAccounts = new TreeMap<String, ArmStorageAccount>();
+                    List<StorageAccount> accounts = azure.storageAccounts().list();
+                    storageAccounts = new TreeMap<String, StorageAccount>();
 
-                        for (ArmStorageAccount storageAccount : accounts) {
-                            storageAccounts.put(storageAccount.getName(), storageAccount);
-                        }
-                    } catch (AzureCmdException e) {
-                        storageAccounts = null;
-                        String msg = "An error occurred while attempting to retrieve the storage accounts list for subscription " +
-                                model.getSubscription().getId() + ".<br>" + String.format(message("webappExpMsg"), e.getMessage());
-                        DefaultLoader.getUIHelper().showException(msg, e, message("errTtl"), false, true);
-                        AzurePlugin.log(msg, e);
-                        return;
+                    for (StorageAccount storageAccount : accounts) {
+                        storageAccounts.put(storageAccount.name(), storageAccount);
                     }
                 }
                 refreshStorageAccounts(null);
@@ -370,29 +386,28 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         ApplicationManager.getApplication().executeOnPooledThread(new Runnable() {
             @Override
             public void run() {
-                ArmStorageAccount selectedSA = model.getStorageAccount();
-                if (selectedSA != null && !storageAccounts.containsKey(selectedSA.getName())) {
-                    storageAccounts.put(selectedSA.getName(), selectedSA);
+                StorageAccount selectedSA = model.getStorageAccount();
+                if (selectedSA != null && !storageAccounts.containsKey(selectedSA.name())) {
+                    storageAccounts.put(selectedSA.name(), selectedSA);
                 }
                 refreshStorageAccounts(selectedSA);
             }
         });
     }
 
-    private void refreshStorageAccounts(final ArmStorageAccount selectedSA) {
+    private void refreshStorageAccounts(final StorageAccount selectedSA) {
         final DefaultComboBoxModel refreshedSAModel = getStorageAccountModel(selectedSA);
 
         ApplicationManager.getApplication().invokeAndWait(new Runnable() {
             @Override
             public void run() {
                 storageComboBox.setModel(refreshedSAModel);
-                model.getCurrentNavigationState().NEXT.setEnabled(selectedSA != null);
             }
         }, ModalityState.any());
     }
 
-    private DefaultComboBoxModel getStorageAccountModel(ArmStorageAccount selectedSA) {
-        Vector<ArmStorageAccount> accounts = filterSA();
+    private DefaultComboBoxModel getStorageAccountModel(StorageAccount selectedSA) {
+        Vector<StorageAccount> accounts = filterSA();
 
         final DefaultComboBoxModel refreshedSAModel = new DefaultComboBoxModel(accounts) {
             @Override
@@ -401,7 +416,11 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
                     showNewStorageForm();
                 } else {
                     super.setSelectedItem(o);
-                    model.setStorageAccount((ArmStorageAccount) o);
+                    if (o instanceof StorageAccount) {
+                        model.setStorageAccount((StorageAccount) o);
+                    } else {
+                        model.setStorageAccount(null); // creating new storage account
+                    }
                 }
             }
         };
@@ -418,16 +437,14 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         return refreshedSAModel;
     }
 
-    private Vector<ArmStorageAccount> filterSA() {
-        Vector<ArmStorageAccount> filteredStorageAccounts = new Vector<>();
+    private Vector<StorageAccount> filterSA() {
+        Vector<StorageAccount> filteredStorageAccounts = new Vector<>();
 
-        for (ArmStorageAccount storageAccount : storageAccounts.values()) {
-            // VM and storage account need to be in the same region;
+        for (StorageAccount storageAccount : storageAccounts.values()) {
             // only general purpose accounts support page blobs, so only they can be used to create vm;
             // zone-redundant acounts not supported for vm
-            if (storageAccount.getLocation().equals(model.getRegion().toString())
-                    && storageAccount.getStorageAccount().kind() == Kind.STORAGE
-                    && storageAccount.getStorageAccount().sku().name() != SkuName.STANDARD_ZRS) {
+            if (storageAccount.kind() == Kind.STORAGE
+                    && storageAccount.sku().name() != SkuName.STANDARD_ZRS) {
                 filteredStorageAccounts.add(storageAccount);
             }
         }
@@ -440,16 +457,7 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
             public void run(@NotNull ProgressIndicator progressIndicator) {
                 progressIndicator.setIndeterminate(true);
                 if (publicIpAddresses == null) {
-                    try {
-                        publicIpAddresses = AzureArmManagerImpl.getManager(project).getPublicIpAddresses(model.getSubscription().getId());
-                    } catch (AzureCmdException e) {
-                        publicIpAddresses = null;
-                        String msg = "An error occurred while attempting to retrieve public ip addresses list for subscription " +
-                                model.getSubscription().getId() + ".<br>" + String.format(message("webappExpMsg"), e.getMessage());
-                        DefaultLoader.getUIHelper().showException(msg, e, message("errTtl"), false, true);
-                        AzurePlugin.log(msg, e);
-                        return;
-                    }
+                    publicIpAddresses = azure.publicIPAddresses().list();
                 }
                 ApplicationManager.getApplication().invokeLater(new Runnable() {
                     @Override
@@ -486,7 +494,7 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         }
     }
 
-    private DefaultComboBoxModel getPipAddressModel(PublicIpAddress selectedPip) {
+    private DefaultComboBoxModel getPipAddressModel(PublicIPAddress selectedPip) {
         DefaultComboBoxModel refreshedPipModel = new DefaultComboBoxModel(filterPip().toArray()) {
             @Override
             public void setSelectedItem(final Object o) {
@@ -498,8 +506,8 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
                     model.setWithNewPip(true);
                     model.setPublicIpAddress(null);
 //                    showNewPipForm();
-                } else if (o instanceof PublicIpAddress) {
-                    model.setPublicIpAddress((PublicIpAddress) o);
+                } else if (o instanceof PublicIPAddress) {
+                    model.setPublicIpAddress((PublicIPAddress) o);
                     model.setWithNewPip(false);
                 }
             }
@@ -517,12 +525,13 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         return refreshedPipModel;
     }
 
-    private Vector<PublicIpAddress> filterPip() {
-        Vector<PublicIpAddress> filteredPips = new Vector<>();
+    private Vector<PublicIPAddress> filterPip() {
+        Vector<PublicIPAddress> filteredPips = new Vector<>();
 
-        for (PublicIpAddress publicIpAddress : publicIpAddresses) {
+        for (PublicIPAddress publicIpAddress : publicIpAddresses) {
+
             // VM and public ip address need to be in the same region
-            if (publicIpAddress.region().equals(model.getRegion())) {
+            if (publicIpAddress.regionName() != null && publicIpAddress.regionName().equals(model.getRegion().name())) {
                 filteredPips.add(publicIpAddress);
             }
         }
@@ -535,16 +544,7 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
             public void run(@NotNull ProgressIndicator progressIndicator) {
                 progressIndicator.setIndeterminate(true);
                 if (networkSecurityGroups == null) {
-                    try {
-                        networkSecurityGroups = AzureArmManagerImpl.getManager(project).getNetworkSecurityGroups(model.getSubscription().getId());
-                    } catch (AzureCmdException e) {
-                        networkSecurityGroups = null;
-                        String msg = "An error occurred while attempting to retrieve network security groups list for subscription " +
-                                model.getSubscription().getId() + ".<br>" + String.format(message("webappExpMsg"), e.getMessage());
-                        DefaultLoader.getUIHelper().showException(msg, e, message("errTtl"), false, true);
-                        AzurePlugin.log(msg, e);
-                        return;
-                    }
+                    networkSecurityGroups = azure.networkSecurityGroups().list();
                 }
                 ApplicationManager.getApplication().invokeLater(new Runnable() {
                     @Override
@@ -607,7 +607,7 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
 
         for (NetworkSecurityGroup nsg : networkSecurityGroups) {
             // VM and network security group
-            if (nsg.region().equals(model.getRegion())) {
+            if (model.getRegion().name().equals(nsg.regionName())) {
                 filteredNsgs.add(nsg);
             }
         }
@@ -620,16 +620,7 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
             public void run(@NotNull ProgressIndicator progressIndicator) {
                 progressIndicator.setIndeterminate(true);
                 if (availabilitySets == null) {
-                    try {
-                        availabilitySets = AzureArmManagerImpl.getManager(project).getAvailabilitySets(model.getSubscription().getId());
-                    } catch (AzureCmdException e) {
-                        availabilitySets = null;
-                        String msg = "An error occurred while attempting to retrieve availability sets list for subscription " +
-                                model.getSubscription().getId() + ".<br>" + String.format(message("webappExpMsg"), e.getMessage());
-                        DefaultLoader.getUIHelper().showException(msg, e, message("errTtl"), false, true);
-                        AzurePlugin.log(msg, e);
-                        return;
-                    }
+                    availabilitySets = azure.availabilitySets().list();
                 }
                 ApplicationManager.getApplication().invokeLater(new Runnable() {
                     @Override
@@ -696,6 +687,29 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
         return refreshedAvailabilitySetModel;
     }
 
+    private void showNewVirtualNetworkForm() {
+        final String resourceGroupName = createNewRadioButton.isSelected() ? resourceGrpField.getText() : resourceGrpCombo.getSelectedItem().toString();
+
+        final CreateVirtualNetworkForm form = new CreateVirtualNetworkForm(project, model.getSubscription().getSubscriptionId(), model.getRegion(),
+                model.getName());
+        form.setOnCreate(new Runnable() {
+            @Override
+            public void run() {
+                VirtualNetwork newVirtualNetwork = form.getNetwork();
+
+                if (newVirtualNetwork != null) {
+                    model.setNewNetwork(newVirtualNetwork);
+                    model.setWithNewNetwork(true);
+                    ((DefaultComboBoxModel)networkComboBox.getModel()).insertElementAt(newVirtualNetwork.name + " (New)", 0);
+                    networkComboBox.setSelectedIndex(0);
+                } else {
+                    networkComboBox.setSelectedItem(null);
+                }
+            }
+        });
+        form.show();
+    }
+
     private void showNewStorageForm() {
         final CreateArmStorageAccountForm form = new CreateArmStorageAccountForm(project);
         form.fillFields(model.getSubscription(), model.getRegion());
@@ -706,11 +720,13 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
                 ApplicationManager.getApplication().invokeLater(new Runnable() {
                     @Override
                     public void run() {
-                        ArmStorageAccount newStorageAccount = form.getStorageAccount();
+                        com.microsoft.tooling.msservices.model.storage.StorageAccount newStorageAccount = form.getStorageAccount();
 
                         if (newStorageAccount != null) {
-                            model.setStorageAccount(newStorageAccount);
-                            fillStorage();
+                            model.setNewStorageAccount(newStorageAccount);
+                            model.setWithNewStorageAccount(true);
+                            ((DefaultComboBoxModel)storageComboBox.getModel()).insertElementAt(newStorageAccount.getName() + " (New)", 0);
+                            storageComboBox.setSelectedIndex(0);
                         }
                     }
                 });
@@ -721,7 +737,7 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
     }
 
     private void validateFinish() {
-        model.getCurrentNavigationState().FINISH.setEnabled(storageComboBox.getSelectedItem() instanceof StorageAccount &&
+        model.getCurrentNavigationState().FINISH.setEnabled(((storageComboBox.getSelectedItem() instanceof StorageAccount) || model.isWithNewStorageAccount()) &&
                 (!subnetComboBox.isEnabled() || subnetComboBox.getSelectedItem() instanceof String));
     }
 
@@ -737,16 +753,6 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
                 progressIndicator.setIndeterminate(true);
 
                 try {
-                    VirtualMachine virtualMachine = new VirtualMachine(
-                            model.getName(),
-                            resourceGroupName,
-                            null, // field not used for ARM vm anyway
-                            model.getSubnet(),
-                            model.getSize().getName(),
-                            VirtualMachine.Status.Unknown,
-                            model.getSubscription().getId()
-                    );
-
                     String certificate = model.getCertificate();
                     byte[] certData = new byte[0];
 
@@ -774,8 +780,6 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
                         }
                     }
 
-                    ArmStorageAccount storageAccount = model.getStorageAccount();
-
 //                    for (StorageAccount account : AzureManagerImpl.getManager(project).getStorageAccounts(
 //                            model.getSubscription().getId(), true)) {
 //                        if (account.getName().equals(storageAccount.getName())) {
@@ -783,12 +787,22 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
 //                            break;
 //                        }
 //                    }
-                    final com.microsoft.azure.management.compute.VirtualMachine vm = AzureArmManagerImpl.getManager(project)
-                            .createVirtualMachine(model.getSubscription().getId(),
-                                    virtualMachine,
+                    final com.microsoft.azure.management.compute.VirtualMachine vm = AzureSDKManager
+                            .createVirtualMachine(model.getSubscription().getSubscriptionId(),
+                                    model.getName(),
+                                    resourceGroupName,
+                                    createNewRadioButton.isSelected(),
+                                    model.getSize(),
+                                    model.getRegion().name(),
                                     model.getVirtualMachineImage(),
-                                    storageAccount,
+                                    model.getKnownMachineImage(),
+                                    model.isKnownMachineImage(),
+                                    model.getStorageAccount(),
+                                    model.getNewStorageAccount(),
+                                    model.isWithNewStorageAccount(),
                                     model.getVirtualNetwork(),
+                                    model.getNewNetwork(),
+                                    model.isWithNewNetwork(),
                                     model.getSubnet(),
                                     model.getPublicIpAddress(),
                                     model.isWithNewPip(),
@@ -797,14 +811,23 @@ public class SettingsStep extends WizardStep<CreateVMWizardModel> {
                                     model.getUserName(),
                                     model.getPassword(),
                                     certData.length > 0 ? new String(certData) : null);
-
-//                    virtualMachine = AzureManagerImpl.getManager(project).refreshVirtualMachineInformation(virtualMachine);
+                    // update resource groups cache if new resource group was created when creating vm
+                    ResourceGroup rg = null;
+                    if (createNewRadioButton.isSelected()) {
+                        rg = azure.resourceGroups().getByName(resourceGroupName);
+                        AzureModelController.addNewResourceGroup(model.getSubscription(), rg);
+                    }
+                    if (model.isWithNewStorageAccount() && model.getNewStorageAccount().isNewResourceGroup() &&
+                            (rg == null || !rg.name().equals(model.getNewStorageAccount().getResourceGroupName()))) {
+                        rg = azure.resourceGroups().getByName(model.getNewStorageAccount().getResourceGroupName());
+                        AzureModelController.addNewResourceGroup(model.getSubscription(), rg);
+                    }
 
                     ApplicationManager.getApplication().invokeLater(new Runnable() {
                         @Override
                         public void run() {
                             try {
-                                parent.addChildNode(new com.microsoft.tooling.msservices.serviceexplorer.azure.vmarm.VMNode(parent, model.getSubscription().getId(), vm));
+                                parent.addChildNode(new com.microsoft.tooling.msservices.serviceexplorer.azure.vmarm.VMNode(parent, model.getSubscription().getSubscriptionId(), vm));
                             } catch (AzureCmdException e) {
                                 String msg = "An error occurred while attempting to refresh the list of virtual machines.";
                                 DefaultLoader.getUIHelper().showException(msg,

@@ -24,11 +24,12 @@ package com.microsoft.intellij.serviceexplorer.azure.storage;
 import com.intellij.openapi.project.Project;
 import com.microsoft.intellij.forms.CreateBlobContainerForm;
 import com.microsoft.tooling.msservices.helpers.Name;
+import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManager;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionEvent;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionListener;
 import com.microsoft.tooling.msservices.serviceexplorer.RefreshableNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.storage.BlobModule;
-import com.microsoft.tooling.msservices.serviceexplorer.azure.storagearm.StorageNode;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.storage.StorageNode;
 
 @Name("Create blob container")
 public class CreateBlobContainer extends NodeActionListener {
@@ -46,15 +47,15 @@ public class CreateBlobContainer extends NodeActionListener {
     public void actionPerformed(NodeActionEvent e) {
         CreateBlobContainerForm form = new CreateBlobContainerForm((Project) parent.getProject());
         if (parent instanceof BlobModule) {
-            form.setStorageAccount(((BlobModule) parent).getStorageAccount());
+            form.setConnectionString(StorageClientSDKManager.getConnectionString(((BlobModule) parent).getStorageAccount()));
         } else if (parent instanceof StorageNode) {
-            form.setStorageAccount(((StorageNode) parent).getStorageAccount());
+            form.setConnectionString(StorageClientSDKManager.getConnectionString(((StorageNode) parent).getStorageAccount()));
         }
         form.setOnCreate(new Runnable() {
             @Override
             public void run() {
                 parent.removeAllChildNodes();
-                parent.load();
+                parent.load(false);
             }
         });
 

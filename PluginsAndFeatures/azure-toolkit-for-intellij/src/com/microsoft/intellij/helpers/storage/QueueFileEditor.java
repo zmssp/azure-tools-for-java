@@ -38,13 +38,11 @@ import com.microsoft.intellij.forms.ViewMessageForm;
 import com.microsoft.intellij.helpers.UIHelperImpl;
 import com.microsoft.intellij.util.PluginUtil;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
-import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
-import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
-import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManagerImpl;
+import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
+import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManager;
 import com.microsoft.tooling.msservices.model.storage.ClientStorageAccount;
 import com.microsoft.tooling.msservices.model.storage.Queue;
 import com.microsoft.tooling.msservices.model.storage.QueueMessage;
-import com.microsoft.tooling.msservices.serviceexplorer.EventHelper.EventWaitHandle;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -70,10 +68,6 @@ public class QueueFileEditor implements FileEditor {
     private JButton clearQueueButton;
     private JTable queueTable;
     private List<QueueMessage> queueMessages;
-
-    private EventWaitHandle subscriptionsChanged;
-    private boolean registeredSubscriptionsChanged;
-    private final Object subscriptionsChangedSync = new Object();
 
     public QueueFileEditor(final Project project) {
         this.project = project;
@@ -207,9 +201,9 @@ public class QueueFileEditor implements FileEditor {
                     ProgressManager.getInstance().run(new Task.Backgroundable(project, "Clearing queue messages", false) {
                         @Override
                         public void run(@NotNull ProgressIndicator progressIndicator) {
-                            try {
+                           /* try {
 
-                                StorageClientSDKManagerImpl.getManager().clearQueue(storageAccount, queue);
+                                StorageClientSDKManager.getManager().clearQueue(storageAccount, queue);
 
                                 ApplicationManager.getApplication().invokeLater(new Runnable() {
                                     @Override
@@ -220,25 +214,20 @@ public class QueueFileEditor implements FileEditor {
                             } catch (AzureCmdException e) {
                                 String msg = "An error occurred while attempting to clear queue messages." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
                                 PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
-                            }
+                            }*/
                         }
                     });
                 }
             }
         });
-
-        try {
-            registerSubscriptionsChanged();
-        } catch (AzureCmdException ignored) {
-        }
     }
 
     public void fillGrid() {
         ProgressManager.getInstance().run(new Task.Backgroundable(project, "Loading queue messages", false) {
             @Override
             public void run(@NotNull ProgressIndicator progressIndicator) {
-                try {
-                    queueMessages = StorageClientSDKManagerImpl.getManager().getQueueMessages(storageAccount, queue);
+                /*try {
+                    queueMessages = StorageClientSDKManager.getManager().getQueueMessages(storageAccount, queue);
 
                     ApplicationManager.getApplication().invokeLater(new Runnable() {
                         @Override
@@ -270,7 +259,7 @@ public class QueueFileEditor implements FileEditor {
                 } catch (AzureCmdException e) {
                     String msg = "An error occurred while attempting to get queue messages." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
                     PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
-                }
+                }*/
             }
         });
     }
@@ -310,8 +299,8 @@ public class QueueFileEditor implements FileEditor {
             ProgressManager.getInstance().run(new Task.Backgroundable(project, "Dequeuing message", false) {
                 @Override
                 public void run(@NotNull ProgressIndicator progressIndicator) {
-                    try {
-                        StorageClientSDKManagerImpl.getManager().dequeueFirstQueueMessage(storageAccount, queue);
+                    /*try {
+                        StorageClientSDKManager.getManager().dequeueFirstQueueMessage(storageAccount, queue);
 
                         ApplicationManager.getApplication().invokeLater(new Runnable() {
                             @Override
@@ -322,7 +311,7 @@ public class QueueFileEditor implements FileEditor {
                     } catch (AzureCmdException e) {
                         String msg = "An error occurred while attempting to dequeue messages." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
                         PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
-                    }
+                    }*/
                 }
             });
         }
@@ -437,47 +426,47 @@ public class QueueFileEditor implements FileEditor {
     public <T> void putUserData(@NotNull Key<T> key, @Nullable T t) {
     }
 
-    private void registerSubscriptionsChanged()
-            throws AzureCmdException {
-        synchronized (subscriptionsChangedSync) {
-            if (subscriptionsChanged == null) {
-                subscriptionsChanged = AzureManagerImpl.getManager(project).registerSubscriptionsChanged();
-            }
-
-            registeredSubscriptionsChanged = true;
-
-            DefaultLoader.getIdeHelper().executeOnPooledThread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        subscriptionsChanged.waitEvent(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (registeredSubscriptionsChanged) {
-                                    Object openedFile = DefaultLoader.getUIHelper().getOpenedFile(project, storageAccount, queue);
-
-                                    if (openedFile != null) {
-                                        DefaultLoader.getIdeHelper().closeFile(project, openedFile);
-                                    }
-                                }
-                            }
-                        });
-                    } catch (AzureCmdException ignored) {
-                    }
-                }
-            });
-        }
-    }
+//    private void registerSubscriptionsChanged()
+//            throws AzureCmdException {
+//        synchronized (subscriptionsChangedSync) {
+//            if (subscriptionsChanged == null) {
+//                subscriptionsChanged = AzureManagerImpl.getManager(project).registerSubscriptionsChanged();
+//            }
+//
+//            registeredSubscriptionsChanged = true;
+//
+//            DefaultLoader.getIdeHelper().executeOnPooledThread(new Runnable() {
+//                @Override
+//                public void run() {
+//                    try {
+//                        subscriptionsChanged.waitEvent(new Runnable() {
+//                            @Override
+//                            public void run() {
+//                                if (registeredSubscriptionsChanged) {
+//                                    Object openedFile = DefaultLoader.getUIHelper().getOpenedFile(project, storageAccount.getName(), queue);
+//
+//                                    if (openedFile != null) {
+//                                        DefaultLoader.getIdeHelper().closeFile(project, openedFile);
+//                                    }
+//                                }
+//                            }
+//                        });
+//                    } catch (AzureCmdException ignored) {
+//                    }
+//                }
+//            });
+//        }
+//    }
 
     private void unregisterSubscriptionsChanged()
             throws AzureCmdException {
-        synchronized (subscriptionsChangedSync) {
-            registeredSubscriptionsChanged = false;
-
-            if (subscriptionsChanged != null) {
-                AzureManagerImpl.getManager(project).unregisterSubscriptionsChanged(subscriptionsChanged);
-                subscriptionsChanged = null;
-            }
-        }
+//        synchronized (subscriptionsChangedSync) {
+//            registeredSubscriptionsChanged = false;
+//
+//            if (subscriptionsChanged != null) {
+//                AzureManagerImpl.getManager(project).unregisterSubscriptionsChanged(subscriptionsChanged);
+//                subscriptionsChanged = null;
+//            }
+//        }
     }
 }

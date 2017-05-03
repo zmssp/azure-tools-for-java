@@ -20,10 +20,10 @@
  * SOFTWARE.
  */
 package com.microsoft.intellij;
+
 import com.intellij.ide.plugins.cl.PluginClassLoader;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
-import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.components.AbstractProjectComponent;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
@@ -31,81 +31,72 @@ import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.module.ModuleTypeId;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.StartupManager;
-import com.intellij.openapi.ui.Messages;
 import com.intellij.util.PlatformUtils;
 import com.intellij.util.containers.HashSet;
-import com.interopbridges.tools.windowsazure.ParserXMLUtility;
-import com.interopbridges.tools.windowsazure.WindowsAzureProjectManager;
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResource;
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResourceRegistry;
+import com.microsoft.azuretools.authmanage.CommonSettings;
+import com.microsoft.azuretools.azurecommons.deploy.DeploymentEventArgs;
+import com.microsoft.azuretools.azurecommons.deploy.DeploymentEventListener;
+import com.microsoft.azuretools.azurecommons.helpers.StringHelper;
+import com.microsoft.azuretools.azurecommons.util.FileUtil;
+import com.microsoft.azuretools.azurecommons.util.GetHashMac;
+import com.microsoft.azuretools.azurecommons.util.ParserXMLUtility;
+import com.microsoft.azuretools.azurecommons.util.Utils;
+import com.microsoft.azuretools.azurecommons.util.WAEclipseHelperMethods;
+import com.microsoft.azuretools.azurecommons.xmlhandling.DataOperations;
 import com.microsoft.intellij.common.CommonConst;
 import com.microsoft.intellij.ui.libraries.AILibraryHandler;
 import com.microsoft.intellij.ui.libraries.AzureLibrary;
 import com.microsoft.intellij.ui.messages.AzureBundle;
 import com.microsoft.intellij.util.AppInsightsCustomEvent;
+import com.microsoft.intellij.util.PluginHelper;
 import com.microsoft.intellij.util.PluginUtil;
-import com.microsoft.intellij.util.WAHelper;
-import com.microsoft.tooling.msservices.helpers.azure.sdk.AzureToolkitFilter;
-import com.microsoftopentechnologies.azurecommons.util.WAEclipseHelperMethods;
-import com.microsoftopentechnologies.azurecommons.xmlhandling.DataOperations;
-import com.microsoftopentechnologies.azurecommons.deploy.DeploymentEventArgs;
-import com.microsoftopentechnologies.azurecommons.deploy.DeploymentEventListener;
-import com.microsoftopentechnologies.azurecommons.wacommonutil.FileUtil;
-import com.microsoftopentechnologies.windowsazure.tools.cspack.Utils;
+import org.apache.commons.io.FileUtils;
+import org.w3c.dom.Document;
 
 import javax.swing.event.EventListenerList;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URL;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Set;
-
-import org.w3c.dom.Document;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import static com.microsoft.intellij.ui.messages.AzureBundle.message;
 
 
 public class AzurePlugin extends AbstractProjectComponent {
     private static final Logger LOG = Logger.getInstance("#com.microsoft.intellij.AzurePlugin");
-    public static final String COMPONENTSETS_VERSION = "2.9.2"; // todo: temporary fix!
-    public static final String PLUGIN_VERSION = "1.5";
-    private static final String PREFERENCESETS_VERSION = "2.9.2";
-    public static final String AZURE_LIBRARIES_VERSION = "0.9.2";
-    public static final String QPID_LIBRARIES_VERSION = "0.19.0";
-    public static final String JDBC_LIBRARIES_VERSION = "6.0.7507.100";
+    public static final String PLUGIN_VERSION = CommonConst.PLUGIN_VERISON;
+    public static final String AZURE_LIBRARIES_VERSION = "1.0.0";
+    public static final String JDBC_LIBRARIES_VERSION = "6.0.8112.100";
     public final static int REST_SERVICE_MAX_RETRY_COUNT = 7;
 
     // User-agent header for Azure SDK calls
-    public static final String USER_AGENT = "Azure Toolkit for IntelliJ, v%s";
+    public static final String USER_AGENT = "Azure Toolkit for IntelliJ, v%s, machineid:%s";
 
     public static boolean IS_WINDOWS = System.getProperty("os.name").toLowerCase().indexOf("win") >= 0;
     public static boolean IS_ANDROID_STUDIO = "AndroidStudio".equals(PlatformUtils.getPlatformPrefix());
 
-    private static final String COMPONENTSETS_TYPE = "COMPONENTSETS";
-    private static final String PREFERENCESETS_TYPE = "PREFERENCESETS";
-
-    public static File cmpntFile = new File(WAHelper.getTemplateFile(message("cmpntFileName")));
-    public static String prefFilePath = WAHelper.getTemplateFile(message("prefFileName"));
     public static String pluginFolder = PluginUtil.getPluginRootDirectory();
 
     private static final EventListenerList DEPLOYMENT_EVENT_LISTENERS = new EventListenerList();
     public static List<DeploymentEventListener> depEveList = new ArrayList<DeploymentEventListener>();
 
-    String dataFile = WAHelper.getTemplateFile(message("dataFileName"));
+    private String dataFile = PluginHelper.getTemplateFile(message("dataFileName"));
 
     private final AzureSettings azureSettings;
+
+    private String _hashmac = GetHashMac.GetHashMac();
 
     public AzurePlugin(Project project) {
         super(project);
         this.azureSettings = AzureSettings.getSafeInstance(project);
-        AzureToolkitFilter.setUserAgent(String.format(USER_AGENT, PLUGIN_VERSION));
+        CommonSettings.setUserAgent(String.format(USER_AGENT, PLUGIN_VERSION, getMachineId()));
     }
+
 
     public void projectOpened() {
         initializeAIRegistry();
@@ -122,7 +113,6 @@ public class AzurePlugin extends AbstractProjectComponent {
         if (!IS_ANDROID_STUDIO) {
             LOG.info("Starting Azure Plugin");
             try {
-                azureSettings.loadStorage();
                 //this code is for copying componentset.xml in plugins folder
                 copyPluginComponents();
                 initializeTelemetry();
@@ -154,9 +144,14 @@ public class AzurePlugin extends AbstractProjectComponent {
                         setValues(dataFile);
                     } else if (instID == null || instID.isEmpty()) {
                         Document doc = ParserXMLUtility.parseXMLFile(dataFile);
-                        DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-                        DataOperations.updatePropertyValue(doc, message("instID"), dateFormat.format(new Date()));
+                        DataOperations.updatePropertyValue(doc, message("instID"), _hashmac);
                         ParserXMLUtility.saveXMLFile(dataFile, doc);
+                    } else if (instID != null && !instID.isEmpty()) {
+                        if (!GetHashMac.IsValidHashMacFormat(instID)) {
+                            Document doc = ParserXMLUtility.parseXMLFile(dataFile);
+                            DataOperations.updatePropertyValue(doc, message("instID"), _hashmac);
+                            ParserXMLUtility.saveXMLFile(dataFile, doc);
+                        }
                     }
                 } else {
                     // proceed with setValues method. Case of new plugin installation
@@ -202,37 +197,24 @@ public class AzurePlugin extends AbstractProjectComponent {
 
     private void setValues(final String dataFile) throws Exception {
         final Document doc = ParserXMLUtility.parseXMLFile(dataFile);
-        ApplicationManager.getApplication().invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                boolean accepted = Messages.showYesNoDialog(message("preferenceQueMsg"), message("preferenceQueTtl"), null) == Messages.YES;
-                if(accepted) {
-                    AppInsightsCustomEvent.create(message("telemetryAcceptAction"),"");
-                } else {
-                    AppInsightsCustomEvent.create(message("telemetryDenyAction"),"");
-                }
-                DataOperations.updatePropertyValue(doc, message("prefVal"), String.valueOf(accepted));
+        DataOperations.updatePropertyValue(doc, message("prefVal"), String.valueOf("true"));
+        DataOperations.updatePropertyValue(doc, message("pluginVersion"), PLUGIN_VERSION);
+        DataOperations.updatePropertyValue(doc, message("instID"), _hashmac);
+        try {
+            ParserXMLUtility.saveXMLFile(dataFile, doc);
+        } catch (Exception ex) {
+            LOG.error(message("error"), ex);
+        }
 
-                DataOperations.updatePropertyValue(doc, message("pluginVersion"), PLUGIN_VERSION);
-                DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-                DataOperations.updatePropertyValue(doc, message("instID"), dateFormat.format(new Date()));
-                try {
-                    ParserXMLUtility.saveXMLFile(dataFile, doc);
-                } catch (Exception ex) {
-                    LOG.error(message("error"), ex);
-                }
-                if (accepted) {
-                    AppInsightsCustomEvent.create(message("telAgrEvtName"), "");
-                }
-            }
-        }, ModalityState.defaultModalityState());
+        AppInsightsCustomEvent.create(message("telAgrEvtName"), "");
     }
 
     /**
-     *  Delete %proj% directory from temporary folder during IntelliJ start
-     *  To fix #2943 : Hang invoking a new Azure project,
-     *  PML does not delete .cspack.jar everytime new azure project is created.
-     *  Hence its necessary to delete %proj% directory when plugin with newer version is installed.
+     * Delete %proj% directory from temporary folder during IntelliJ start
+     * To fix #2943 : Hang invoking a new Azure project,
+     * PML does not delete .cspack.jar everytime new azure project is created.
+     * Hence its necessary to delete %proj% directory when plugin with newer version is installed.
+     *
      * @throws Exception
      */
     private void clearTempDirectory() throws Exception {
@@ -277,172 +259,49 @@ public class AzurePlugin extends AbstractProjectComponent {
         return "MSOpenTechTools.AzurePlugin";
     }
 
+    // plugin will be installed into plugins-sandbox in debug model
+    private boolean isDebugModel() {
+        return PluginUtil.getPluginRootDirectory().contains("plugins-sandbox");
+    }
+
     /**
      * Copies Azure Toolkit for IntelliJ
      * related files in azure-toolkit-for-intellij plugin folder at startup.
      */
     private void copyPluginComponents() {
         try {
-            String cmpntFile = String.format("%s%s%s", pluginFolder,
-                    File.separator, AzureBundle.message("cmpntFileName"));
-            String starterKit = String.format("%s%s%s", pluginFolder,
-                    File.separator, AzureBundle.message("starterKitFileName"));
-            String enctFile = String.format("%s%s%s", pluginFolder,
-                    File.separator, message("encFileName"));
-            String prefFile = String.format("%s%s%s", pluginFolder,
-                    File.separator, AzureBundle.message("prefFileName"));
-
-            // upgrade component sets and preference sets
-            upgradePluginComponent(cmpntFile, AzureBundle.message("cmpntFileEntry"), AzureBundle.message("oldCmpntFileEntry"), COMPONENTSETS_TYPE);
-            upgradePluginComponent(prefFile, AzureBundle.message("prefFileEntry"), AzureBundle.message("oldPrefFileEntry"), PREFERENCESETS_TYPE);
-
-            // Check for WAStarterKitForJava.zip
-            if (new File(starterKit).exists()) {
-                new File(starterKit).delete();
-            }
-            // Check for encutil.exe
-            if (new File(enctFile).exists()) {
-                new File(enctFile).delete();
-            }
-            copyResourceFile(message("starterKitEntry"), starterKit);
-            copyResourceFile(message("encFileName"), enctFile);
-            for (AzureLibrary azureLibrary : AzureLibrary.LIBRARIES) {
-                if (!new File(pluginFolder + File.separator + azureLibrary.getLocation()).exists()) {
-                    for (String entryName : Utils.getJarEntries(pluginFolder + File.separator + "lib" + File.separator + CommonConst.PLUGIN_NAME + ".jar", azureLibrary.getLocation())) {
-                        new File(pluginFolder + File.separator + entryName).getParentFile().mkdirs();
-                        copyResourceFile(entryName, pluginFolder + File.separator + entryName);
+            if (!isDebugModel()) {
+                for (AzureLibrary azureLibrary : AzureLibrary.LIBRARIES) {
+                    if (azureLibrary.getLocation() != null) {
+                        if (!new File(pluginFolder + File.separator + azureLibrary.getLocation()).exists()) {
+                            for (String entryName : Utils.getJarEntries(pluginFolder + File.separator + "lib" + File.separator + CommonConst.PLUGIN_NAME + ".jar", azureLibrary.getLocation())) {
+                                new File(pluginFolder + File.separator + entryName).getParentFile().mkdirs();
+                                copyResourceFile(entryName, pluginFolder + File.separator + entryName);
+                            }
+                        }
                     }
                 }
             }
-            // copy remote debugging files
-            File remoteDebugFolder = new File(WAHelper.getTemplateFile("remotedebug"));
-            if (!remoteDebugFolder.exists()) {
-                remoteDebugFolder.mkdir();
-            }
-            String debugBat = WAHelper.getDebugFile("DebugSession.bat");
-            if (!new File(debugBat).exists()) {
-                copyResourceFile(message("debugBat"), debugBat);
-            }
-            String debugJar = WAHelper.getDebugFile("azure-websites-remote-debugging.jar");
-            if (!new File(debugJar).exists()) {
-                copyResourceFile(message("debugJar"), debugJar);
-            }
-            String debugConfig = WAHelper.getDebugFile("web.config");
-            if (!new File(debugConfig).exists()) {
-                copyResourceFile(message("debugConfig"), debugConfig);
-            }
-            // copy custom JDK configuration files
-            File customFolder = new File(WAHelper.getTemplateFile("customConfiguration"));
-            if (!customFolder.exists()) {
-                customFolder.mkdir();
-            }
-            String washFile = WAHelper.getCustomJdkFile(".wash.ps1");
-            if (!new File(washFile).exists()) {
-                copyResourceFile(message("washName"), washFile);
-            }
-            String downloadName = WAHelper.getCustomJdkFile("download.vbs");
-            if (!new File(downloadName).exists()) {
-                copyResourceFile(message("downloadName"), downloadName);
-            }
-            String edmDll = WAHelper.getCustomJdkFile("Microsoft.Data.Edm.dll");
-            if (!new File(edmDll).exists()) {
-                copyResourceFile(message("edmDll"), edmDll);
-            }
-            String odataDll = WAHelper.getCustomJdkFile("Microsoft.Data.OData.dll");
-            if (!new File(odataDll).exists()) {
-                copyResourceFile(message("odataDll"), odataDll);
-            }
-            String clientDll = WAHelper.getCustomJdkFile("Microsoft.Data.Services.Client.dll");
-            if (!new File(clientDll).exists()) {
-                copyResourceFile(message("clientDll"), clientDll);
-            }
-            String configDll = WAHelper.getCustomJdkFile("Microsoft.WindowsAzure.Configuration.dll");
-            if (!new File(configDll).exists()) {
-                copyResourceFile(message("configDll"), configDll);
-            }
-            String storageDll = WAHelper.getCustomJdkFile("Microsoft.WindowsAzure.Storage.dll");
-            if (!new File(storageDll).exists()) {
-                copyResourceFile(message("storageDll"), storageDll);
-            }
-            String jsonDll = WAHelper.getCustomJdkFile("Newtonsoft.Json.dll");
-            if (!new File(jsonDll).exists()) {
-                copyResourceFile(message("jsonDll"), jsonDll);
-            }
-            String spatialDll = WAHelper.getCustomJdkFile("System.Spatial.dll");
-            if (!new File(spatialDll).exists()) {
-                copyResourceFile(message("spatialDll"), spatialDll);
-            }
-            String washCmd = WAHelper.getCustomJdkFile("wash.cmd");
-            if (!new File(washCmd).exists()) {
-                copyResourceFile(message("washCmd"), washCmd);
-            }
-            String psConfig = WAHelper.getCustomJdkFile("powershell.exe.activation_config");
-            if (!new File(psConfig).exists()) {
-                copyResourceFile(message("psConfig"), psConfig);
-            }
-            String washConfig = WAHelper.getCustomJdkFile(message("configName"));
-            if (!new File(washConfig).exists()) {
-                copyResourceFile(message("configFile"), washConfig);
-            }
+
+            extractJobViewResource();
         } catch (Exception e) {
             LOG.error(e.getMessage(), e);
         }
     }
 
-    /**
-     * Checks for pluginComponent file.
-     * If exists checks its version.
-     * If it has latest version then no upgrade action is needed,
-     * else checks with older componentsets.xml,
-     * if identical then deletes existing and copies new one
-     * else renames existing and copies new one.
-     *
-     * @param pluginComponentPath
-     * @param resource
-     * @param componentType
-     * @throws Exception
-     */
-    private void upgradePluginComponent(String pluginComponentPath, String resource,
-                                        String oldResource, String componentType) throws Exception {
-        File pluginComponentFile = new File(pluginComponentPath);
-        if (pluginComponentFile.exists()) {
-            String pluginComponentVersion = null;
-            String resourceFileVersion = null;
-//        	File resourceFile = new File(((PluginClassLoader)AzurePlugin.class.getClassLoader()).findResource(resource).toURI());
-            try {
-                if (COMPONENTSETS_TYPE.equals(componentType)) {
-                    pluginComponentVersion = WindowsAzureProjectManager.getComponentSetsVersion(pluginComponentFile);
-                    resourceFileVersion = COMPONENTSETS_VERSION; //WindowsAzureProjectManager.getComponentSetsVersion(resourceFile);
-                } else {
-                    pluginComponentVersion = WindowsAzureProjectManager.getPreferenceSetsVersion(pluginComponentFile);
-                    resourceFileVersion = PREFERENCESETS_VERSION; //WindowsAzureProjectManager.getPreferenceSetsVersion(resourceFile);
-                }
-            } catch (Exception e) {
-                LOG.error("Error occured while getting version of plugin component " + componentType + ", considering version as null");
-            }
-            if ((pluginComponentVersion != null
-                    && !pluginComponentVersion.isEmpty())
-                    && pluginComponentVersion.equals(resourceFileVersion)) {
-                // Do not do anything
-            } else {
-                // Check with old plugin component for upgrade scenarios
-                URL oldPluginComponentUrl = ((PluginClassLoader) AzurePlugin.class.getClassLoader()).findResource(oldResource);
-//                InputStream oldPluginComponentIs = AzurePlugin.class.getResourceAsStream(oldResourceFile);
-                boolean isIdenticalWithOld = WAHelper.isFilesIdentical(oldPluginComponentUrl, pluginComponentFile);
-                if (isIdenticalWithOld) {
-                    // Delete old one
-                    pluginComponentFile.delete();
-                } else {
-                    // Rename old one
-                    DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
-                    Date date = new Date();
-                    WAHelper.copyFile(pluginComponentPath, pluginComponentPath + ".old" + dateFormat.format(date));
-                }
-                copyResourceFile(resource, pluginComponentPath);
+    private String getMachineId() {
+        String ret = null;
+        String dataFile = PluginHelper.getTemplateFile(message("dataFileName"));
+        if (new File(dataFile).exists()) {
+            ret = DataOperations.getProperty(dataFile, message("instID"));
+            if (ret == null || ret.isEmpty() || !GetHashMac.IsValidHashMacFormat(ret)) {
+                ret = _hashmac;
             }
         } else {
-            copyResourceFile(resource, pluginComponentPath);
+            ret = GetHashMac.GetHashMac();
         }
+
+        return ret;
     }
 
     /**
@@ -490,10 +349,78 @@ public class AzurePlugin extends AbstractProjectComponent {
 
     public static void log(String message, Throwable ex) {
         LOG.error(message, ex);
-        LOG.info(message);
     }
 
     public static void log(String message) {
         LOG.info(message);
+    }
+    private static final String HTML_ZIP_FILE_NAME = "/hdinsight_jobview_html.zip";
+
+    private boolean isFirstInstallationByVersion() {
+        if (new File(dataFile).exists()) {
+            String version = DataOperations.getProperty(dataFile, message("pluginVersion"));
+            if (!StringHelper.isNullOrWhiteSpace(version) && version.equals(PLUGIN_VERSION)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void extractJobViewResource() {
+        File indexRootFile = new File(PluginUtil.getPluginRootDirectory() + File.separator + "com.microsoft.hdinsight");
+
+        if (isFirstInstallationByVersion() || isDebugModel()) {
+            if (indexRootFile.exists()) {
+                try {
+                    FileUtils.deleteDirectory(indexRootFile);
+                } catch (IOException e) {
+                    LOG.error("delete HDInsight job view folder error", e);
+                }
+            }
+        }
+
+        URL url = AzurePlugin.class.getResource(HTML_ZIP_FILE_NAME);
+        if (url != null) {
+            File toFile = new File(indexRootFile.getAbsolutePath(), HTML_ZIP_FILE_NAME);
+            try {
+                FileUtils.copyURLToFile(url, toFile);
+                unzip(toFile.getAbsolutePath(), toFile.getParent());
+            } catch (IOException e) {
+                LOG.error("Extract Job View Folder", e);
+            }
+        } else {
+            LOG.error("Can't find HDInsight job view zip package");
+        }
+    }
+
+    private static void unzip(String zipFilePath, String destDirectory) throws IOException {
+        File destDir = new File(destDirectory);
+        if (!destDir.exists()) {
+            destDir.mkdir();
+        }
+        ZipInputStream zipIn = new ZipInputStream(new FileInputStream(zipFilePath));
+        ZipEntry entry = zipIn.getNextEntry();
+        while (entry != null) {
+            String filePath = destDirectory + File.separator + entry.getName();
+            if (!entry.isDirectory()) {
+                extractFile(zipIn, filePath);
+            } else {
+                File dir = new File(filePath);
+                dir.mkdir();
+            }
+            zipIn.closeEntry();
+            entry = zipIn.getNextEntry();
+        }
+        zipIn.close();
+    }
+
+    private static void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
+        BufferedOutputStream bos = new BufferedOutputStream(new java.io.FileOutputStream(filePath));
+        byte[] bytesIn = new byte[1024 * 10];
+        int read = 0;
+        while ((read = zipIn.read(bytesIn)) != -1) {
+            bos.write(bytesIn, 0, read);
+        }
+        bos.close();
     }
 }

@@ -29,9 +29,8 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.ValidationInfo;
 import com.microsoft.intellij.util.PluginUtil;
-import com.microsoft.tooling.msservices.components.DefaultLoader;
-import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
-import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManagerImpl;
+import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
+import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManager;
 import com.microsoft.tooling.msservices.model.storage.ClientStorageAccount;
 import com.microsoft.tooling.msservices.model.storage.Queue;
 import com.microsoft.tooling.msservices.model.storage.QueueMessage;
@@ -125,7 +124,7 @@ public class QueueMessageForm extends DialogWrapper {
         ProgressManager.getInstance().run(new Task.Backgroundable(project, "Adding queue message", false) {
             @Override
             public void run(@NotNull ProgressIndicator progressIndicator) {
-                try {
+                /*try {
                     QueueMessage queueMessage = new QueueMessage(
                             "",
                             queue.getName(),
@@ -134,7 +133,7 @@ public class QueueMessageForm extends DialogWrapper {
                             new GregorianCalendar(),
                             0);
 
-                    StorageClientSDKManagerImpl.getManager().createQueueMessage(storageAccount, queueMessage, expireSeconds);
+                    StorageClientSDKManager.getManager().createQueueMessage(storageAccount, queueMessage, expireSeconds);
 
                     if (onAddedMessage != null) {
                         ApplicationManager.getApplication().invokeLater(onAddedMessage);
@@ -142,7 +141,7 @@ public class QueueMessageForm extends DialogWrapper {
                 } catch (AzureCmdException e) {
                     String msg = "An error occurred while attempting to add queue message." + "\n" + String.format(message("webappExpMsg"), e.getMessage());
                     PluginUtil.displayErrorDialogAndLog(message("errTtl"), msg, e);
-                }
+                }*/
             }
         });
 

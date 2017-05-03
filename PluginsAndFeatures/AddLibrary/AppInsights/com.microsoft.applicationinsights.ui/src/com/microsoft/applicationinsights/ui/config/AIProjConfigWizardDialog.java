@@ -68,14 +68,14 @@ import com.microsoft.applicationinsights.preference.ApplicationInsightsPreferenc
 import com.microsoft.applicationinsights.preference.ApplicationInsightsResourceRegistry;
 import com.microsoft.applicationinsights.ui.activator.Activator;
 import com.microsoft.applicationinsights.util.AILibraryUtil;
-import com.microsoft.tooling.msservices.helpers.azure.AzureManager;
-import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
-import com.microsoft.tooling.msservices.model.Subscription;
-import com.microsoft.wacommon.applicationinsights.AILibraryHandler;
-import com.microsoft.wacommon.applicationinsights.ApplicationInsightsPreferences;
-import com.microsoft.wacommon.applicationinsights.ApplicationInsightsResourceRegistryEclipse;
-import com.microsoftopentechnologies.wacommon.telemetry.AppInsightsCustomEvent;
-import com.microsoftopentechnologies.wacommon.utils.PluginUtil;
+import com.microsoft.azuretools.core.telemetry.AppInsightsCustomEvent;
+import com.microsoft.azuretools.core.utils.PluginUtil;
+import com.microsoft.azuretools.sdkmanage.AzureManager;
+import com.microsoft.azuretools.authmanage.AuthMethodManager;
+import com.microsoft.azuretools.authmanage.models.SubscriptionDetail;
+import com.microsoft.azuretools.core.applicationinsights.AILibraryHandler;
+import com.microsoft.azuretools.core.applicationinsights.ApplicationInsightsPreferences;
+import com.microsoft.azuretools.core.applicationinsights.ApplicationInsightsResourceRegistryEclipse;
 
 public class AIProjConfigWizardDialog extends TitleAreaDialog {
 	private Button aiCheck;
@@ -168,17 +168,21 @@ public class AIProjConfigWizardDialog extends TitleAreaDialog {
 	
 	private void setData() {
 		try {
-			AzureManager manager = AzureManagerImpl.getManager();
-			List<Subscription> subList = manager.getSubscriptionList();
+			AzureManager azureManager = AuthMethodManager.getInstance().getAzureManager();
+            // not signed in
+            if (azureManager == null) {
+                return;
+            }
+            List<SubscriptionDetail> subList = azureManager.getSubscriptionManager().getSubscriptionDetails();
 			if (subList.size() > 0 && !ApplicationInsightsPreferences.isLoaded()) {
-				if (manager.authenticated()) {
+//				if (manager.authenticated()) {
 					// authenticated using AD. Proceed for updating application insights registry.
 					ApplicationInsightsResourceRegistryEclipse.updateApplicationInsightsResourceRegistry(subList);
-				} else {
+//				} else {
 					// imported publish settings file. just show manually added list from preferences
 					// Neither clear subscription list nor show sign in dialog as user may just want to add key manually.
-					ApplicationInsightsResourceRegistryEclipse.keeepManuallyAddedList();
-				}
+//					ApplicationInsightsResourceRegistryEclipse.keeepManuallyAddedList();
+//				}
 			}
 		} catch(Exception ex) {
 			Activator.getDefault().log(ex.getMessage(), ex);
@@ -489,7 +493,7 @@ public class AIProjConfigWizardDialog extends TitleAreaDialog {
 
 	public IClasspathEntry[] getClasspathEntriesOfAzureLibabries(
 			IPath containerPath) {
-		String sdkID = "com.microsoftopentechnologies.windowsazure.tools.sdk";
+		String sdkID = "com.microsoft.azuretools.sdk";
 		Bundle bundle = Platform.getBundle(sdkID);
 		// Search the available SDKs
 		Bundle[] bundles = Platform.getBundles(sdkID, null);
@@ -505,7 +509,7 @@ public class AIProjConfigWizardDialog extends TitleAreaDialog {
 
 			// Get the SDK jar.
 			URL sdkJar = FileLocator.find(bundle, new Path(
-					"azure-core-0.9.2.jar"), null);
+					"azure-1.0.0.jar"), null);
 			URL resSdkJar = null;
 			IClasspathAttribute[] attr = null;
 			try {
@@ -521,7 +525,7 @@ public class AIProjConfigWizardDialog extends TitleAreaDialog {
 					URL bundleLoc = new URL(bundle.getLocation());
 					StringBuffer strBfr = new StringBuffer(bundleLoc.getPath());
 					strBfr.append(File.separator)
-							.append("azure-core-0.9.2.jar");
+							.append("azure-1.0.0.jar");
 					URL jarLoc = new URL(strBfr.toString());
 					IPath jarPath = new Path(FileLocator.resolve(jarLoc)
 							.getPath());

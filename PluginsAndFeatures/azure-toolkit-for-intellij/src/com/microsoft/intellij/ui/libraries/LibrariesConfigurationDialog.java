@@ -143,8 +143,11 @@ public class LibrariesConfigurationDialog extends DialogWrapper {
                     }
                 }
                 Library.ModifiableModel newLibraryModel = newLibrary.getModifiableModel();
-                File file = new File(String.format("%s%s%s", AzurePlugin.pluginFolder, File.separator, azureLibrary.getLocation()));
-                AddLibraryUtility.addLibraryRoot(file, newLibraryModel);
+                // if there is separate resources folder
+                if (azureLibrary.getLocation() != null) {
+                    File file = new File(String.format("%s%s%s", AzurePlugin.pluginFolder, File.separator, azureLibrary.getLocation()));
+                    AddLibraryUtility.addLibraryRoot(file, newLibraryModel);
+                }
                 // if some files already contained in plugin dependencies, take them from there - true for azure sdk library
                 if (azureLibrary.getFiles().length > 0) {
                     AddLibraryUtility.addLibraryFiles(new File(PluginHelper.getAzureLibLocation()), newLibraryModel, azureLibrary.getFiles());
@@ -213,8 +216,8 @@ public class LibrariesConfigurationDialog extends DialogWrapper {
             if (!currentLibs.contains(lib)) {
                 if (lib.getName().equalsIgnoreCase(AzureLibrary.AZURE_LIBRARIES.toString())) {
                     AppInsightsCustomEvent.create("Azure Libraries", AzurePlugin.AZURE_LIBRARIES_VERSION);
-                } else if (lib.getName().equalsIgnoreCase(AzureLibrary.QPID_CLIENT.toString())) {
-                    AppInsightsCustomEvent.create("Apache Qpid", AzurePlugin.QPID_LIBRARIES_VERSION);
+                } else if (lib.getName().equalsIgnoreCase(AzureLibrary.SQL_JDBC.toString())) {
+                    AppInsightsCustomEvent.create("Microsoft JDBC Driver", AzurePlugin.JDBC_LIBRARIES_VERSION);
                 }
             }
         }

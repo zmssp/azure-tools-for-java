@@ -22,21 +22,22 @@
 package com.microsoft.intellij.wizards.createarmvm;
 
 import com.intellij.ui.wizard.WizardDialog;
-import com.microsoft.tooling.msservices.serviceexplorer.azure.vmarm.VMArmServiceModule;
+import com.microsoft.intellij.wizards.VMWizardModel;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.vmarm.VMArmModule;
 
 import javax.swing.*;
 import java.awt.*;
 
-public class CreateVMWizard extends WizardDialog<CreateVMWizardModel> {
-    public CreateVMWizard(VMArmServiceModule node) {
-        super(true, true, new CreateVMWizardModel(node));
+public class CreateVMWizard extends WizardDialog<VMWizardModel> {
+    public CreateVMWizard(VMArmModule node) {
+        super(true, true, new VMWizardModel(node));
     }
 
     @Override
     protected Dimension getWindowPreferredSize() {
         this.getWindow();
         this.setResizable(false);
-        return new Dimension(790, 467);
+        return new Dimension(500, 467);
     }
 
 

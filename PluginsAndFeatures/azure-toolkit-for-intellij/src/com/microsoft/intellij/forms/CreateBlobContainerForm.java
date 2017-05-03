@@ -28,13 +28,13 @@ import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.ValidationInfo;
+import com.microsoft.azure.management.storage.StorageAccount;
 import com.microsoft.intellij.helpers.LinkListener;
 import com.microsoft.intellij.util.PluginUtil;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
-import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
-import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManagerImpl;
+import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
+import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManager;
 import com.microsoft.tooling.msservices.model.storage.BlobContainer;
-import com.microsoft.tooling.msservices.model.storage.ClientStorageAccount;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,7 +49,7 @@ public class CreateBlobContainerForm extends DialogWrapper {
     private JLabel namingGuidelinesLink;
 
     private Project project;
-    private ClientStorageAccount storageAccount;
+    private String connectionString;
     private Runnable onCreate;
 
     private static final String NAME_REGEX = "^[a-z0-9](?!.*--)[a-z0-9-]+[a-z0-9]$";
@@ -92,7 +92,7 @@ public class CreateBlobContainerForm extends DialogWrapper {
                 try {
                     progressIndicator.setIndeterminate(true);
 
-                    for (BlobContainer blobContainer : StorageClientSDKManagerImpl.getManager().getBlobContainers(storageAccount)) {
+                    for (BlobContainer blobContainer : StorageClientSDKManager.getManager().getBlobContainers(connectionString)) {
                         if (blobContainer.getName().equals(name)) {
                             ApplicationManager.getApplication().invokeLater(new Runnable() {
                                 @Override
@@ -105,8 +105,8 @@ public class CreateBlobContainerForm extends DialogWrapper {
                         }
                     }
 
-                    BlobContainer blobContainer = new BlobContainer(name, storageAccount.getBlobsUri() + name, "", Calendar.getInstance(), "");
-                    StorageClientSDKManagerImpl.getManager().createBlobContainer(storageAccount, blobContainer);
+                    BlobContainer blobContainer = new BlobContainer(name, ""/*storageAccount.getBlobsUri() + name*/, "", Calendar.getInstance(), "");
+                    StorageClientSDKManager.getManager().createBlobContainer(connectionString, blobContainer);
 
                     if (onCreate != null) {
                         ApplicationManager.getApplication().invokeLater(onCreate);
@@ -127,8 +127,8 @@ public class CreateBlobContainerForm extends DialogWrapper {
         return contentPane;
     }
 
-    public void setStorageAccount(ClientStorageAccount storageAccount) {
-        this.storageAccount = storageAccount;
+    public void setConnectionString(String connectionString) {
+        this.connectionString = connectionString;
     }
 
     public void setOnCreate(Runnable onCreate) {

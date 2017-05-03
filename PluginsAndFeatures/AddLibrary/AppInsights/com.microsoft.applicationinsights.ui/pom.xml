@@ -3,12 +3,12 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-	<relativePath>../../../pom.xml</relativePath>
-    <groupId>com.microsoftopentechnologies.wap4ej.build</groupId>
+	<relativePath>../../../azure-toolkit-for-eclipse/pom.xml</relativePath>
+    <groupId>com.microsoft.azuretools.wap4ej.build</groupId>
     <artifactId>parent</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>3.0.1-SNAPSHOT</version>
   </parent>
-  <groupId>com.microsoftopentechnologies.wap4ej.build</groupId>
+  <groupId>com.microsoft.azuretools.wap4ej.build</groupId>
   <artifactId>com.microsoft.applicationinsights.ui</artifactId>
   <version>1.0.3-SNAPSHOT</version>
   <packaging>eclipse-plugin</packaging>

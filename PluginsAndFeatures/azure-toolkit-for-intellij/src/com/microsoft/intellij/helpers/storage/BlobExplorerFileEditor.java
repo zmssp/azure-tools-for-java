@@ -33,16 +33,21 @@ import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Key;
+import com.microsoft.azure.management.storage.StorageAccount;
+import com.microsoft.azuretools.authmanage.AuthMethodManager;
+import com.microsoft.azuretools.authmanage.ISubscriptionSelectionListener;
+import com.microsoft.azuretools.sdkmanage.AzureManager;
 import com.microsoft.intellij.forms.UploadBlobFileForm;
 import com.microsoft.intellij.helpers.UIHelperImpl;
 import com.microsoft.intellij.util.PluginUtil;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.helpers.CallableSingleArg;
-import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
-import com.microsoft.tooling.msservices.helpers.azure.AzureManagerImpl;
-import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManagerImpl;
-import com.microsoft.tooling.msservices.model.storage.*;
-import com.microsoft.tooling.msservices.serviceexplorer.EventHelper.EventWaitHandle;
+import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
+import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManager;
+import com.microsoft.tooling.msservices.model.storage.BlobContainer;
+import com.microsoft.tooling.msservices.model.storage.BlobDirectory;
+import com.microsoft.tooling.msservices.model.storage.BlobFile;
+import com.microsoft.tooling.msservices.model.storage.BlobItem;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import sun.misc.IOUtils;
@@ -84,16 +89,15 @@ public class BlobExplorerFileEditor implements FileEditor {
     private JButton backButton;
     private JLabel pathLabel;
 
-    private ClientStorageAccount storageAccount;
+    private String connectionString;
     private BlobContainer blobContainer;
+    private String storageAccount;
     private Project project;
 
     private LinkedList<BlobDirectory> directoryQueue = new LinkedList<BlobDirectory>();
     private List<BlobItem> blobItems;
 
-    private EventWaitHandle subscriptionsChanged;
-    private boolean registeredSubscriptionsChanged;
-    private final Object subscriptionsChangedSync = new Object();
+    private ISubscriptionSelectionListener subscriptionListener;
 
     public BlobExplorerFileEditor(Project project) {
         this.project = project;
@@ -290,10 +294,7 @@ public class BlobExplorerFileEditor implements FileEditor {
             }
         });
 
-        try {
-            registerSubscriptionsChanged();
-        } catch (AzureCmdException ignored) {
-        }
+        addSubscriptionSelectionListener();
     }
 
     public void fillGrid() {
@@ -306,10 +307,10 @@ public class BlobExplorerFileEditor implements FileEditor {
                     progressIndicator.setIndeterminate(true);
 
                     if (directoryQueue.peekLast() == null) {
-                        directoryQueue.addLast(StorageClientSDKManagerImpl.getManager().getRootDirectory(storageAccount, blobContainer));
+                        directoryQueue.addLast(StorageClientSDKManager.getManager().getRootDirectory(connectionString, blobContainer));
                     }
 
-                    blobItems = StorageClientSDKManagerImpl.getManager().getBlobItems(storageAccount, directoryQueue.peekLast());
+                    blobItems = StorageClientSDKManager.getManager().getBlobItems(connectionString, directoryQueue.peekLast());
 
                     if (!queryTextField.getText().isEmpty()) {
                         for (int i = blobItems.size() - 1; i >= 0; i--) {
@@ -497,11 +498,11 @@ public class BlobExplorerFileEditor implements FileEditor {
                     public void run(@NotNull ProgressIndicator progressIndicator) {
                         progressIndicator.setIndeterminate(true);
                         try {
-                            StorageClientSDKManagerImpl.getManager().deleteBlobFile(storageAccount, blobItem);
+                            StorageClientSDKManager.getManager().deleteBlobFile(connectionString, blobItem);
 
                             if (blobItems.size() <= 1) {
                                 directoryQueue.clear();
-                                directoryQueue.addLast(StorageClientSDKManagerImpl.getManager().getRootDirectory(storageAccount, blobContainer));
+                                directoryQueue.addLast(StorageClientSDKManager.getManager().getRootDirectory(connectionString, blobContainer));
 
                                 queryTextField.setText("");
                             }
@@ -590,7 +591,7 @@ public class BlobExplorerFileEditor implements FileEditor {
                                 @Override
                                 public void run() {
                                     try {
-                                        StorageClientSDKManagerImpl.getManager().downloadBlobFileContent(storageAccount, fileSelection, bufferedOutputStream);
+                                        StorageClientSDKManager.getManager().downloadBlobFileContent(connectionString, fileSelection, bufferedOutputStream);
 
                                         if (open && targetFile.exists()) {
                                             Desktop.getDesktop().open(targetFile);
@@ -695,8 +696,8 @@ public class BlobExplorerFileEditor implements FileEditor {
                             @Override
                             public Void call() throws AzureCmdException {
                                 try {
-                                    StorageClientSDKManagerImpl.getManager().uploadBlobFileContent(
-                                            storageAccount,
+                                    StorageClientSDKManager.getManager().uploadBlobFileContent(
+                                            connectionString,
                                             blobContainer,
                                             path,
                                             bufferedInputStream,
@@ -722,9 +723,9 @@ public class BlobExplorerFileEditor implements FileEditor {
                                 future.cancel(true);
                                 bufferedInputStream.close();
 
-                                for (BlobItem blobItem : StorageClientSDKManagerImpl.getManager().getBlobItems(storageAccount, blobDirectory)) {
+                                for (BlobItem blobItem : StorageClientSDKManager.getManager().getBlobItems(connectionString, blobDirectory)) {
                                     if (blobItem instanceof BlobFile && blobItem.getPath().equals(path)) {
-                                        StorageClientSDKManagerImpl.getManager().deleteBlobFile(storageAccount, (BlobFile) blobItem);
+                                        StorageClientSDKManager.getManager().deleteBlobFile(connectionString, (BlobFile) blobItem);
                                     }
                                 }
                             }
@@ -732,10 +733,10 @@ public class BlobExplorerFileEditor implements FileEditor {
 
                         try {
                             directoryQueue.clear();
-                            directoryQueue.addLast(StorageClientSDKManagerImpl.getManager().getRootDirectory(storageAccount, blobContainer));
+                            directoryQueue.addLast(StorageClientSDKManager.getManager().getRootDirectory(connectionString, blobContainer));
 
                             for (String pathDir : path.split("/")) {
-                                for (BlobItem blobItem : StorageClientSDKManagerImpl.getManager().getBlobItems(storageAccount, directoryQueue.getLast())) {
+                                for (BlobItem blobItem : StorageClientSDKManager.getManager().getBlobItems(connectionString, directoryQueue.getLast())) {
                                     if (blobItem instanceof BlobDirectory && blobItem.getName().equals(pathDir)) {
                                         directoryQueue.addLast((BlobDirectory) blobItem);
                                     }
@@ -851,8 +852,13 @@ public class BlobExplorerFileEditor implements FileEditor {
     @Override
     public void dispose() {
         try {
-            unregisterSubscriptionsChanged();
-        } catch (AzureCmdException ignored) {
+            AzureManager azureManager = AuthMethodManager.getInstance().getAzureManager();
+            // not signed in
+            if (azureManager == null || subscriptionListener == null) {
+                return;
+            }
+            azureManager.getSubscriptionManager().removeListener(subscriptionListener);
+        } catch (Exception ignored) {
         }
     }
 
@@ -866,55 +872,40 @@ public class BlobExplorerFileEditor implements FileEditor {
     public <T> void putUserData(@NotNull Key<T> key, @Nullable T t) {
     }
 
-    public void setStorageAccount(ClientStorageAccount storageAccount) {
-        this.storageAccount = storageAccount;
+    public void setConnectionString(String connectionString) {
+        this.connectionString = connectionString;
     }
 
     public void setBlobContainer(BlobContainer blobContainer) {
         this.blobContainer = blobContainer;
     }
 
-    private void registerSubscriptionsChanged()
-            throws AzureCmdException {
-        synchronized (subscriptionsChangedSync) {
-            if (subscriptionsChanged == null) {
-                subscriptionsChanged = AzureManagerImpl.getManager(project).registerSubscriptionsChanged();
+    public void setStorageAccount(String storageAccountName) {
+        this.storageAccount = storageAccountName;
+    }
+
+    private void addSubscriptionSelectionListener() {
+        try {
+            AzureManager azureManager = AuthMethodManager.getInstance().getAzureManager();
+            // not signed in
+            if (azureManager == null) {
+                return;
             }
 
-            registeredSubscriptionsChanged = true;
-
-            DefaultLoader.getIdeHelper().executeOnPooledThread(new Runnable() {
+            azureManager.getSubscriptionManager().addListener(new ISubscriptionSelectionListener() {
                 @Override
-                public void run() {
-                    try {
-                        subscriptionsChanged.waitEvent(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (registeredSubscriptionsChanged) {
-                                    Object openedFile = DefaultLoader.getUIHelper().getOpenedFile(project, storageAccount, blobContainer);
+                public void update(boolean isSignedOut) {
+                    if (isSignedOut) {
+                        Object openedFile = DefaultLoader.getUIHelper().getOpenedFile(project, storageAccount, blobContainer);
 
-                                    if (openedFile != null) {
-                                        DefaultLoader.getIdeHelper().closeFile(project, openedFile);
-                                    }
-                                }
-                            }
-                        });
-                    } catch (AzureCmdException ignored) {
+                        if (openedFile != null) {
+                            DefaultLoader.getIdeHelper().closeFile(project, openedFile);
+                        }
                     }
                 }
             });
-        }
-    }
-
-    private void unregisterSubscriptionsChanged()
-            throws AzureCmdException {
-        synchronized (subscriptionsChangedSync) {
-            registeredSubscriptionsChanged = false;
-
-            if (subscriptionsChanged != null) {
-                AzureManagerImpl.getManager(project).unregisterSubscriptionsChanged(subscriptionsChanged);
-                subscriptionsChanged = null;
-            }
+        } catch (Exception ex) {
+            DefaultLoader.getUIHelper().logError(ex.getMessage(), ex);
         }
     }
 }

@@ -44,17 +44,17 @@ import com.intellij.packaging.artifacts.Artifact;
 import com.intellij.packaging.impl.artifacts.ArtifactUtil;
 import com.intellij.packaging.impl.compiler.ArtifactCompileScope;
 import com.intellij.packaging.impl.compiler.ArtifactsWorkspaceSettings;
-import com.microsoft.auth.IWebUi;
+import com.microsoft.azuretools.azurecommons.tasks.CancellableTask;
 import com.microsoft.intellij.ApplicationSettings;
 import com.microsoft.intellij.AzureSettings;
 import com.microsoft.intellij.helpers.tasks.CancellableTaskHandleImpl;
 import com.microsoft.intellij.util.PluginUtil;
+import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.helpers.IDEHelper;
-import com.microsoft.tooling.msservices.helpers.NotNull;
-import com.microsoft.tooling.msservices.helpers.Nullable;
-import com.microsoft.tooling.msservices.helpers.azure.AzureCmdException;
-import com.microsoft.tooling.msservices.helpers.tasks.CancellableTask;
-import com.microsoft.tooling.msservices.helpers.tasks.CancellableTask.CancellableTaskHandle;
+import com.microsoft.azuretools.azurecommons.helpers.NotNull;
+import com.microsoft.azuretools.azurecommons.helpers.Nullable;
+import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
+import com.microsoft.tooling.msservices.helpers.UIHelper;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -110,126 +110,6 @@ public class IDEHelperImpl implements IDEHelper {
     @Override
     public boolean isApplicationPropertySet(@NotNull String name) {
         return ApplicationSettings.getInstance().isPropertySet(name);
-    }
-
-    @Override
-    public IWebUi getWebUi() {
-
-        class LoginWindow extends DialogWrapper {
-            public final String redirectUri;
-            public final String requestUri;
-            private String res = null;
-
-            private final JFXPanel fxPanel;
-
-            private void setResult(String res) {
-                this.res = res;
-            }
-
-            public String getResult() {
-                return res;
-            }
-
-            public LoginWindow(String requestUri, String redirectUri) {
-                super(null, false, IdeModalityType.IDE);
-
-                this.redirectUri =  redirectUri;
-                this.requestUri =  requestUri;
-
-                fxPanel = new JFXPanel();
-                setModal(true);
-                setTitle("Azure Login Dialog");
-                init();
-            }
-
-            @Override
-            protected JComponent createCenterPanel() {
-                fxPanel.setPreferredSize(new Dimension(500, 750));
-                Platform.setImplicitExit(false);
-                Runnable fxWorker = new Runnable() {
-                    @Override
-                    public void run() {
-                        Group root = new Group();
-                        final WebView browser = new WebView();
-                        final WebEngine webEngine = browser.getEngine();
-                        webEngine.locationProperty().addListener(new ChangeListener<String>(){
-                            @Override
-                            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
-
-                                if(newValue.startsWith(redirectUri)) {
-                                    setResult(newValue);
-                                    closeDlg();
-                                }
-                            }
-                        });
-
-                        Scene scene = new Scene(browser);
-                        fxPanel.setScene(scene);
-                        webEngine.load(requestUri);
-                    }
-                };
-
-                Platform.runLater(fxWorker);
-                return  fxPanel;
-            }
-
-            private void closeDlg() {
-                ApplicationManager.getApplication().invokeLater( new Runnable() {
-                    @Override
-                    public void run() {
-                        doOKAction();
-                    }
-                }, ModalityState.any());
-            }
-
-            @Override
-            protected JComponent createSouthPanel() {
-                return null;
-            }
-
-            @Override
-            protected String getDimensionServiceKey() {
-                return "Auth4jLoginDialog";
-            }
-        }
-
-        class WebUi implements IWebUi {
-            LoginWindow loginWindow;
-            @Override
-            public Future<String> authenticateAsync(URI requestUri, URI redirectUri) {
-                System.out.println("==> requestUri: " + requestUri);
-                final String requestUriStr = requestUri.toString();
-                final String redirectUriStr = redirectUri.toString();
-
-                if(ApplicationManager.getApplication().isDispatchThread()) {
-                    buildAndShow(requestUri.toString(), redirectUri.toString());
-                } else {
-                    ApplicationManager.getApplication().invokeAndWait( new Runnable() {
-                        @Override
-                        public void run() {
-                            buildAndShow(requestUriStr, redirectUriStr);
-                        }
-                    }, ModalityState.any());
-                }
-
-                final Callable<String> worker = new Callable<String>() {
-                    @Override
-                    public String call() {
-                        return loginWindow.getResult();
-                    }
-                };
-
-                // just to return future to comply interface
-                return Executors.newSingleThreadExecutor().submit(worker);
-            }
-
-            private void buildAndShow(String requestUri, String redirectUri) {
-                loginWindow = new LoginWindow(requestUri, redirectUri);
-                loginWindow.show();
-            }
-        }
-
-        return new WebUi();
     }
 
     @Override
@@ -292,10 +172,10 @@ public class IDEHelperImpl implements IDEHelper {
 
     @NotNull
     @Override
-    public CancellableTaskHandle runInBackground(@NotNull ProjectDescriptor projectDescriptor,
-                                                 @NotNull final String name,
-                                                 @Nullable final String indicatorText,
-                                                 @NotNull final CancellableTask cancellableTask)
+    public CancellableTask.CancellableTaskHandle runInBackground(@NotNull ProjectDescriptor projectDescriptor,
+                                                                 @NotNull final String name,
+                                                                 @Nullable final String indicatorText,
+                                                                 @NotNull final CancellableTask cancellableTask)
             throws AzureCmdException {
         final CancellableTaskHandleImpl handle = new CancellableTaskHandleImpl();
         final Project project = findOpenProject(projectDescriptor);
@@ -582,5 +462,14 @@ public class IDEHelperImpl implements IDEHelper {
                 }
             }
         };
+    }
+
+    public void openLinkInBrowser(@NotNull String url) {
+        try {
+            Desktop.getDesktop().browse(URI.create(url));
+        } catch (Exception e) {
+            DefaultLoader.getUIHelper().showException("Unexpected exception: " + e.getMessage(), e, "Browse Web App", true, false);
+            DefaultLoader.getUIHelper().logError("Unexpected exception: " + e.getMessage(), e);
+        }
     }
 }

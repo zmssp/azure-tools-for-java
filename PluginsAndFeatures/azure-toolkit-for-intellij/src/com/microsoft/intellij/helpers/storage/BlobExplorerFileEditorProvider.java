@@ -30,8 +30,9 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.microsoft.intellij.helpers.IDEHelperImpl;
+import com.microsoft.azure.management.storage.StorageAccount;
 import com.microsoft.intellij.helpers.UIHelperImpl;
+import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManager;
 import com.microsoft.tooling.msservices.model.storage.BlobContainer;
 import com.microsoft.tooling.msservices.model.storage.ClientStorageAccount;
 import org.jdom.Element;
@@ -42,10 +43,11 @@ public class BlobExplorerFileEditorProvider implements FileEditorProvider, DumbA
 
     @Override
     public boolean accept(@NotNull Project project, @NotNull VirtualFile virtualFile) {
-        ClientStorageAccount storageAccount = virtualFile.getUserData(UIHelperImpl.STORAGE_KEY);
+        StorageAccount storageAccount = virtualFile.getUserData(UIHelperImpl.STORAGE_KEY);
+        ClientStorageAccount clientStorageAccount = virtualFile.getUserData(UIHelperImpl.CLIENT_STORAGE_KEY);
         BlobContainer blobContainer = virtualFile.getUserData(CONTAINER_KEY);
 
-        return (storageAccount != null && blobContainer != null);
+        return ((storageAccount != null || clientStorageAccount != null )&& blobContainer != null);
     }
 
     @NotNull
@@ -53,11 +55,17 @@ public class BlobExplorerFileEditorProvider implements FileEditorProvider, DumbA
     public FileEditor createEditor(@NotNull Project project, @NotNull VirtualFile virtualFile) {
         BlobExplorerFileEditor blobExplorerFileEditor = new BlobExplorerFileEditor(project);
 
-        ClientStorageAccount storageAccount = virtualFile.getUserData(UIHelperImpl.STORAGE_KEY);
+        StorageAccount storageAccount = virtualFile.getUserData(UIHelperImpl.STORAGE_KEY);
         BlobContainer blobContainer = virtualFile.getUserData(CONTAINER_KEY);
 
         blobExplorerFileEditor.setBlobContainer(blobContainer);
-        blobExplorerFileEditor.setStorageAccount(storageAccount);
+        if (storageAccount != null) {
+            blobExplorerFileEditor.setConnectionString(StorageClientSDKManager.getConnectionString(storageAccount));
+            blobExplorerFileEditor.setStorageAccount(storageAccount.name());
+        } else {
+            blobExplorerFileEditor.setConnectionString(virtualFile.getUserData(UIHelperImpl.CLIENT_STORAGE_KEY).getConnectionString());
+            blobExplorerFileEditor.setStorageAccount(virtualFile.getUserData(UIHelperImpl.CLIENT_STORAGE_KEY).getName());
+        }
 
         blobExplorerFileEditor.fillGrid();
 
