@@ -1,0 +1,11 @@
+language: java
+sudo: false
+jdk:
+- oraclejdk8
+script:
+- mvn install -f Utils/azuretools-core/pom.xml
+- mvn install -f Utils/azure-explorer-common/pom.xml
+- mvn install -f Utils/hdinsight-node-common/pom.xml
+- mvn install -f PluginsAndFeatures/azure-toolkit-for-eclipse/pom.xml
+- gradle buildPlugin -Pintellij_version=IU-2016.3 -Pdep_plugins=org.intellij.scala:2016.3.5 --project-dir PluginsAndFeatures/azure-toolkit-for-intellij
+- gradle buildPlugin --project-dir PluginsAndFeatures/azure-toolkit-for-intellij
