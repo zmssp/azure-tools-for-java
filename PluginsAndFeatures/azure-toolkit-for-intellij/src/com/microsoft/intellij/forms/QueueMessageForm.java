@@ -21,19 +21,14 @@
  */
 package com.microsoft.intellij.forms;
 
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.ValidationInfo;
-import com.microsoft.intellij.util.PluginUtil;
-import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
-import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManager;
 import com.microsoft.tooling.msservices.model.storage.ClientStorageAccount;
 import com.microsoft.tooling.msservices.model.storage.Queue;
-import com.microsoft.tooling.msservices.model.storage.QueueMessage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,10 +37,8 @@ import javax.swing.text.AbstractDocument;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DocumentFilter;
-import java.util.GregorianCalendar;
 import java.util.regex.Pattern;
 
-import static com.microsoft.intellij.ui.messages.AzureBundle.message;
 import static java.util.regex.Pattern.compile;
 
 public class QueueMessageForm extends DialogWrapper {
