@@ -156,7 +156,7 @@ public class Utils {
 	}
 
 	/*
-	 * when there is version upgrade, if the existed version >= 3.x, then respesct the recorded telemetry preference;
+	 * when there is version upgrade, if the existed version >= 3.x, then respect the recorded telemetry preference;
 	 * Otherwise, overwrite it to "true";
 	 */
     public static boolean whetherUpdateTelemetryPref(String recordedVersion) {

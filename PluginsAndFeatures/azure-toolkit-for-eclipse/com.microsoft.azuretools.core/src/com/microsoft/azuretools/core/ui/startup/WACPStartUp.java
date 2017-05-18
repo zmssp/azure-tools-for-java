@@ -154,12 +154,12 @@ public class WACPStartUp implements IStartup {
 			throws Exception {
 		final Document doc = ParserXMLUtility.parseXMLFile(dataFile);
 		if (isAzureToolKit) {
-			try{
+			try {
 				String recordedVersion = DataOperations.getProperty(dataFile, Messages.version);
 				if (Utils.whetherUpdateTelemetryPref(recordedVersion)) {
 					DataOperations.updatePropertyValue(doc, Messages.prefVal, "true");
 				}
-			}catch (Exception ex){
+			} catch (Exception ex){
 				Activator.getDefault().log(ex.getMessage(), ex);
 			}
 		}
