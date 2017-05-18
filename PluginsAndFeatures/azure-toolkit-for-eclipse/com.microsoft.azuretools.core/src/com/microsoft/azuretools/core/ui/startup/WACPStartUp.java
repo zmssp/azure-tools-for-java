@@ -32,6 +32,7 @@ import org.w3c.dom.Document;
 import com.microsoft.azuretools.azurecommons.helpers.StringHelper;
 import com.microsoft.azuretools.azurecommons.util.GetHashMac;
 import com.microsoft.azuretools.azurecommons.util.ParserXMLUtility;
+import com.microsoft.azuretools.azurecommons.util.Utils;
 import com.microsoft.azuretools.azurecommons.xmlhandling.DataOperations;
 import com.microsoft.azuretools.core.Activator;
 import com.microsoft.azuretools.core.telemetry.AppInsightsConfigurationImpl;
@@ -103,7 +104,7 @@ public class WACPStartUp implements IStartup {
 								setValues(dataFile, StringHelper.isNullOrWhiteSpace(prefValue),
 										StringHelper.isNullOrWhiteSpace(hdinsightPrefValue));
 							} else if (instID == null || instID.isEmpty() || !GetHashMac.IsValidHashMacFormat(instID)) {
-								install = true;
+								upgrade = true;
 								Document doc = ParserXMLUtility.parseXMLFile(dataFile);
 								DataOperations.updatePropertyValue(doc, Messages.instID, _hashmac);
 								ParserXMLUtility.saveXMLFile(dataFile, doc);
@@ -116,10 +117,12 @@ public class WACPStartUp implements IStartup {
 					}
 				} else {
 					// copy file and proceed with setValues method
+					install = true;
 					FileUtil.copyResourceFile(Messages.dataFileEntry, dataFile);
 					setValues(dataFile);
 				}
 			} else {
+				install = true;
 				new File(pluginInstLoc).mkdir();
 				FileUtil.copyResourceFile(Messages.dataFileEntry, dataFile);
 				setValues(dataFile);
@@ -138,6 +141,8 @@ public class WACPStartUp implements IStartup {
 	private void setValues(final String dateFile) throws Exception {
 		setValues(dateFile, true, true);
 	}
+	
+	
 
 	/**
 	 * Method updates or creates property elements in data.xml
@@ -149,7 +154,14 @@ public class WACPStartUp implements IStartup {
 			throws Exception {
 		final Document doc = ParserXMLUtility.parseXMLFile(dataFile);
 		if (isAzureToolKit) {
-			DataOperations.updatePropertyValue(doc, Messages.prefVal, "true");
+			try{
+				String recordedVersion = DataOperations.getProperty(dataFile, Messages.version);
+				if (Utils.whetherUpdateTelemetryPref(recordedVersion)) {
+					DataOperations.updatePropertyValue(doc, Messages.prefVal, "true");
+				}
+			}catch (Exception ex){
+				Activator.getDefault().log(ex.getMessage(), ex);
+			}
 		}
 
 		Display.getDefault().syncExec(new Runnable() {
@@ -170,5 +182,5 @@ public class WACPStartUp implements IStartup {
 				Activator.getDefault().getBundle().getVersion().toString());
 		DataOperations.updatePropertyValue(doc, Messages.instID, _hashmac);
 		ParserXMLUtility.saveXMLFile(dataFile, doc);
-	}
+	} 
 }
