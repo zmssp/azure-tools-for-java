@@ -154,4 +154,54 @@ public class Utils {
 		}
 		return files;
 	}
+
+	/*
+	 * when there is version upgrade, if the existed version >= 3.x, then respect the recorded telemetry preference;
+	 * Otherwise, overwrite it to "true";
+	 */
+    public static boolean whetherUpdateTelemetryPref(String recordedVersion) {
+        if (recordedVersion == null || recordedVersion.isEmpty()) {
+            return true;
+        }
+
+        if (compareVersion(recordedVersion, "3.0") >= 0) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    /*
+    return negative: v1 < v2
+    return 0; v1 = v2
+    return positive: v1 > v2
+     */
+    public static int compareVersion(String version1, String version2) {
+        if ((version1 == null || version1.isEmpty()) && (version2 == null || version2.isEmpty())) {
+            return 0;
+        }
+
+        if (version1 == null || version1.isEmpty()) {
+            return -1;
+        }
+
+        if (version2 == null || version2.isEmpty()) {
+            return 1;
+        }
+
+        // neither is null
+        String[] version1Seg = version1.split("\\.");
+        String[] version2Seg = version2.split("\\.");
+
+        int i = 0;
+        while (i < version1Seg.length && i < version2Seg.length && version1Seg[i].equalsIgnoreCase(version2Seg[i])) {
+            i++;
+        }
+
+        if (i < version1Seg.length && i < version2Seg.length) {
+            return Integer.valueOf(version1Seg[i]).compareTo(Integer.valueOf(version2Seg[i]));
+        }
+
+        return version1Seg.length - version2Seg.length;
+    }
 }

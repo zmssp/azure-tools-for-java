@@ -127,6 +127,7 @@ public class AzurePlugin extends AbstractProjectComponent {
         if (new File(dataFile).exists()) {
             String version = DataOperations.getProperty(dataFile, message("pluginVersion"));
             if (version == null || version.isEmpty()) {
+                upgrade = true;
                 // proceed with setValues method as no version specified
                 setValues(dataFile);
             } else {
@@ -140,7 +141,7 @@ public class AzurePlugin extends AbstractProjectComponent {
                     if (prefValue == null || prefValue.isEmpty()) {
                         setValues(dataFile);
                     } else if (instID == null || instID.isEmpty() || !GetHashMac.IsValidHashMacFormat(instID)) {
-                        install = true;
+                        upgrade = true;
                         Document doc = ParserXMLUtility.parseXMLFile(dataFile);
                         DataOperations.updatePropertyValue(doc, message("instID"), _hashmac);
                         ParserXMLUtility.saveXMLFile(dataFile, doc);
@@ -153,6 +154,7 @@ public class AzurePlugin extends AbstractProjectComponent {
             }
         } else {
             // copy file and proceed with setValues method
+            install = true;
             copyResourceFile(message("dataFileName"), dataFile);
             setValues(dataFile);
         }
@@ -194,11 +196,16 @@ public class AzurePlugin extends AbstractProjectComponent {
     }
 
     private void setValues(final String dataFile) throws Exception {
-        final Document doc = ParserXMLUtility.parseXMLFile(dataFile);
-        DataOperations.updatePropertyValue(doc, message("prefVal"), String.valueOf("true"));
-        DataOperations.updatePropertyValue(doc, message("pluginVersion"), PLUGIN_VERSION);
-        DataOperations.updatePropertyValue(doc, message("instID"), _hashmac);
         try {
+            final Document doc = ParserXMLUtility.parseXMLFile(dataFile);
+            String recordedVersion = DataOperations.getProperty(dataFile, message("pluginVersion"));
+            if (Utils.whetherUpdateTelemetryPref(recordedVersion)) {
+                DataOperations.updatePropertyValue(doc, message("prefVal"), String.valueOf("true"));
+            }
+
+            DataOperations.updatePropertyValue(doc, message("pluginVersion"), PLUGIN_VERSION);
+            DataOperations.updatePropertyValue(doc, message("instID"), _hashmac);
+
             ParserXMLUtility.saveXMLFile(dataFile, doc);
         } catch (Exception ex) {
             LOG.error(message("error"), ex);
