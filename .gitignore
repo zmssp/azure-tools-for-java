@@ -1,6 +1,6 @@
 # Editor-specific files
-.swp
-.swo
+*.swp
+*.swo
 .vscode/
 
 # Java class files
@@ -98,3 +98,11 @@ fabric.properties
 # Build tmp folder
 .repository
 artifacts
+
+# generated gradle files
+gradle/
+gradlew
+gradlew.bat
+
+# Mac OSX
+.DS_Store

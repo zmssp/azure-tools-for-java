@@ -40,7 +40,7 @@ import org.eclipse.jdt.core.JavaCore;
 import com.microsoft.azuretools.azurecommons.helpers.NotNull;
 import com.microsoft.azuretools.azurecommons.helpers.StringHelper;
 import com.microsoft.azuretools.telemetry.AppInsightsClient;
-import com.microsoft.azuretools.hdinsight.util.Messages;
+import com.microsoft.azuretools.core.utils.Messages;
 
 public class CreateProjectUtil {
 
@@ -98,7 +98,14 @@ public class CreateProjectUtil {
 			AppInsightsClient.create(Messages.SparkProjectSystemScalaSampleCreation, null);
 			copyFileTo(Scala_Cluster_Run_Sample, rootPath);
 			break;
+		case "com.microsoft.azure.hdinsight.scala.projwizard":
+			AppInsightsClient.create(Messages.SparkProjectSystemScalaCreation, null);
+			break;
+		case "com.microsoft.azure.hdinsight.java.projwizard":
+			AppInsightsClient.create(Messages.SparkProjectSystemJavaCreation, null);
+			break;
 		default:
+			AppInsightsClient.create(Messages.SparkProjectSystemOtherCreation, null);
 			break;
 		}
 	}

@@ -20,27 +20,26 @@
  * SOFTWARE.
  */
 package com.microsoft.azure.hdinsight.common.task;
-
+//
+//import com.gargoylesoftware.htmlunit.WebClient;
+//import com.gargoylesoftware.htmlunit.html.DomElement;
+//import com.gargoylesoftware.htmlunit.html.DomNodeList;
+//import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.google.common.util.concurrent.FutureCallback;
 import com.microsoft.azure.hdinsight.sdk.cluster.IClusterDetail;
 import com.microsoft.azure.hdinsight.sdk.common.HDIException;
 import com.microsoft.azuretools.azurecommons.helpers.NotNull;
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpEntity;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 
 public class YarnHistoryTask extends Task<String> {
 
     protected final IClusterDetail clusterDetail;
     protected final String path;
-    private final CredentialsProvider credentialsProvider =  new BasicCredentialsProvider();
+    private final CredentialsProvider credentialsProvider  =  new BasicCredentialsProvider();
+//    private static final WebClient WEB_CLIENT = new WebClient();
 
     public YarnHistoryTask(@NotNull IClusterDetail clusterDetail, @NotNull String path, @NotNull FutureCallback<String> callback) {
         super(callback);
@@ -55,14 +54,18 @@ public class YarnHistoryTask extends Task<String> {
 
     @Override
     public String call() throws Exception {
-        CloseableHttpClient httpclient = HttpClients.custom().setDefaultCredentialsProvider(credentialsProvider).build();
-        HttpGet httpGet = new HttpGet(path);
-        httpGet.addHeader("Content-Type", "text/html");
-
-        CloseableHttpResponse response = httpclient.execute(httpGet);
-
-        HttpEntity httpEntity = response.getEntity();
-
-        return IOUtils.toString(httpEntity.getContent());
+//        WEB_CLIENT.setCredentialsProvider(credentialsProvider);
+//        HtmlPage htmlPage = WEB_CLIENT.getPage(path);
+//
+//        // parse pre tag from html response
+//        // there's only one 'pre' in response
+//        DomNodeList<DomElement> preTagElements = htmlPage.getElementsByTagName("pre");
+//
+//        if (preTagElements.size() == 0) {
+//            throw new HDIException("No logs here or logs not available");
+//        } else {
+//            return preTagElements.get(0).asText();
+//        }
+        return "Yarn Log unavailable";
     }
 }

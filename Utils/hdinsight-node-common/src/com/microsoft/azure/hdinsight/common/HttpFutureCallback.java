@@ -25,10 +25,14 @@ package com.microsoft.azure.hdinsight.common;
 import com.google.common.util.concurrent.FutureCallback;
 import com.microsoft.azuretools.azurecommons.helpers.NotNull;
 import com.sun.net.httpserver.HttpExchange;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.OutputStream;
 
 public abstract class  HttpFutureCallback implements FutureCallback<String> {
+    private static final Logger LOGGER = LoggerFactory.getLogger(HttpFutureCallback.class);
+
     private final HttpExchange httpExchange;
 
     public HttpFutureCallback(@NotNull HttpExchange httpExchange) {
@@ -40,7 +44,7 @@ public abstract class  HttpFutureCallback implements FutureCallback<String> {
         dealWithFailure(t,httpExchange);
     }
 
-    private static void dealWithFailure(@NotNull Throwable throwable,@NotNull final HttpExchange httpExchange) {
+    protected static void dealWithFailure(@NotNull Throwable throwable,@NotNull final HttpExchange httpExchange) {
         httpExchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
         try {
             String str = throwable.getMessage();
@@ -49,7 +53,7 @@ public abstract class  HttpFutureCallback implements FutureCallback<String> {
             stream.write(str.getBytes());
             stream.close();
         }catch (Exception e) {
-            //LOGGER.error("Get job history error", e);
+            LOGGER.error("get Job History",e);
         }
     }
 }

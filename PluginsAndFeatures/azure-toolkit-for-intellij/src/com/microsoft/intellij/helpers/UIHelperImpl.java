@@ -19,11 +19,13 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 package com.microsoft.intellij.helpers;
 
 import com.google.common.collect.ImmutableMap;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.fileEditor.FileEditor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.Project;
@@ -38,24 +40,33 @@ import com.microsoft.azuretools.azurecommons.helpers.Nullable;
 import com.microsoft.intellij.AzurePlugin;
 import com.microsoft.intellij.forms.ErrorMessageForm;
 import com.microsoft.intellij.forms.OpenSSLFinderForm;
+import com.microsoft.intellij.helpers.rediscache.RedisCachePropertyView;
 import com.microsoft.intellij.helpers.storage.*;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.helpers.UIHelper;
 import com.microsoft.tooling.msservices.model.storage.*;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.rediscache.RedisCacheNode;
 
 import javax.swing.*;
+import java.awt.Desktop;
 import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.net.URI;
 import java.text.DecimalFormat;
 import java.util.Map;
 
 public class UIHelperImpl implements UIHelper {
     public static Key<StorageAccount> STORAGE_KEY = new Key<StorageAccount>("storageAccount");
     public static Key<ClientStorageAccount> CLIENT_STORAGE_KEY = new Key<ClientStorageAccount>("clientStorageAccount");
+    public static final Key<String> SUBSCRIPTION_ID = new Key<>("subscriptionId");
+    public static final Key<String> RESOURCE_ID = new Key<>("resourceId");
     private Map<Class<? extends StorageServiceTreeItem>, Key<? extends StorageServiceTreeItem>> name2Key = ImmutableMap.of(BlobContainer.class, BlobExplorerFileEditorProvider.CONTAINER_KEY,
             Queue.class, QueueExplorerFileEditorProvider.QUEUE_KEY,
             Table.class, TableExplorerFileEditorProvider.TABLE_KEY);
+
+    private static final String UNABLE_TO_OPEN_BROWSER = "Unable to open external web browser";
+
 
     @Override
     public void showException(@NotNull final String message,
@@ -267,6 +278,55 @@ public class UIHelperImpl implements UIHelper {
         openSSLFinderForm.show();
 
         return DefaultLoader.getIdeHelper().getPropertyWithDefault("MSOpenSSLPath", "");
+    }
+
+    @Override
+    public void openRedisPropertyView(@NotNull RedisCacheNode node) {
+        String redisName = node.getName() != null ? node.getName() : RedisCacheNode.TYPE;
+        String sid = node.getSubscriptionId();
+        String resId = node.getResourceId();
+        if (sid == null || resId == null) {
+            return;
+        }
+        Project project = (Project) node.getProject();
+        LightVirtualFile itemVirtualFile = null;
+        FileEditorManager fileEditorManager = FileEditorManager.getInstance(project);
+        if (fileEditorManager == null) {
+            return;
+        }
+        for (VirtualFile editedFile : fileEditorManager.getOpenFiles()) {
+            String fileSid = editedFile.getUserData(SUBSCRIPTION_ID);
+            if (fileSid != null && fileSid.equals(sid) &&
+                    editedFile.getName().equals(redisName) &&
+                    editedFile.getFileType().getName().equals(RedisCacheNode.TYPE)) {
+                itemVirtualFile = (LightVirtualFile) editedFile;
+                break;
+            }
+        }
+        if (itemVirtualFile == null) {
+            itemVirtualFile = new LightVirtualFile(redisName);
+            itemVirtualFile.setFileType(getFileType(RedisCacheNode.TYPE, RedisCacheNode.REDISCACHE_ICON_PATH));
+            itemVirtualFile.putUserData(SUBSCRIPTION_ID, sid);
+            itemVirtualFile.putUserData(RESOURCE_ID, resId);
+        }
+        FileEditor[] editors = fileEditorManager.openFile( itemVirtualFile, true, true);
+        ApplicationManager.getApplication().invokeLater(() -> {
+            for (FileEditor editor: editors) {
+                if (editor.getName().equals(RedisCachePropertyView.ID) &&
+                        editor instanceof RedisCachePropertyView) {
+                    ((RedisCachePropertyView) editor).readProperty(sid, resId);
+                }
+            }
+        }, ModalityState.any());
+    }
+
+    @Override
+    public void openInBrowser(String link) {
+        try {
+            Desktop.getDesktop().browse(URI.create(link));
+        } catch (Exception e) {
+            showException(UNABLE_TO_OPEN_BROWSER, e, UNABLE_TO_OPEN_BROWSER, false, false);
+        }
     }
 
     @Nullable

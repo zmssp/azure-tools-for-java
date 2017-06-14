@@ -22,6 +22,7 @@
 
 package com.microsoft.azure.hdinsight.spark.jobs.framework;
 
+import com.microsoft.azure.hdinsight.spark.jobs.JobViewHttpServer;
 import com.microsoft.azure.hdinsight.spark.jobs.JobUtils;
 import com.microsoft.azuretools.azurecommons.helpers.NotNull;
 import com.microsoft.azuretools.azurecommons.helpers.StringHelper;
@@ -37,37 +38,43 @@ import netscape.javascript.JSObject;
 
 public final class JobViewPanel extends JFXPanel {
 
-    private final JobUtils jobUtil;
     private final String rootPath;
-    private final String id;
+    private final String clusterName;
     private WebView webView;
     private WebEngine webEngine;
     private boolean alreadyLoad = false;
 
-    public JobViewPanel(@NotNull String rootPath, @NotNull String uuid) {
+    private static final String QUERY_TEMPLATE = "?clusterName=%s&port=%s&engineType=javafx";
+
+    public JobViewPanel(@NotNull String rootPath, @NotNull String clusterName) {
         this.rootPath = rootPath;
-        this.id = uuid;
-        this.jobUtil = new JobUtils();
+        this.clusterName = clusterName;
         init(this);
     }
 
     private void init(final JFXPanel panel) {
-        String url = rootPath + "/com.microsoft.hdinsight/hdinsight/job/html/index.html";
-        url = url.replace("\\", "/");
-        final String queryString = "?projectid=" + id + "&engintype=javafx";
-        final String weburl = "file:///" + url + queryString;
+        String url = String.format("file:///%s/com.microsoft.hdinsight/hdinsight/job/html/index.html", rootPath);
+
+         // for debug only
+        final String ideaSystemPath = System.getProperty("idea.system.path");
+        if(!StringHelper.isNullOrWhiteSpace(ideaSystemPath) && ideaSystemPath.contains("idea-sandbox")) {
+            final String workFolder = System.getProperty("user.dir");
+            final String path = "Utils/hdinsight-node-common/resources/htmlResources/hdinsight/job/html/index.html";
+            url = String.format("file:///%s/%s", workFolder, path);
+        }
+        // end of for debug only part
+
+       final String queryString = String.format(QUERY_TEMPLATE, clusterName, JobViewHttpServer.getPort());
+        final String webUrl = url + queryString;
 
         Platform.setImplicitExit(false);
         Platform.runLater(()-> {
             webView = new WebView();
+            panel.setScene(new Scene(webView));
             webEngine = webView.getEngine();
             webEngine.setJavaScriptEnabled(true);
-            JSObject win = (JSObject) webEngine.executeScript("window");
-            win.setMember("JobUtils", jobUtil);
-            panel.setScene(new Scene(webView));
-
             if (!alreadyLoad) {
-                webEngine.load(weburl);
+                webEngine.load(webUrl);
                 alreadyLoad = true;
             }
         });

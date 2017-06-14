@@ -26,12 +26,32 @@ function findElement(arrs, func) {
 
 var asyncMessageCounter = 0;
 
-function getMessageAsync(url, callback) {
+function getRestHeaders(type) {
+    return {'http-type' : type, 'cluster-name' : spark.clusterName }
+}
+
+function serializeQuery(queriesMap) {
+    var keys = Object.keys(queriesMap);
+    if (!keys || keys.length === 0) return '';
+
+    var result = keys.reduce(function(sumSoFar, key) {
+        return sumSoFar + "&{0}={1}".format(key, queriesMap[key]);
+    }, '');
+    return result.substring(1);
+}
+
+function getMessageAsync(url, type, callback, appId) {
+    var queries = {
+        'http-type' : type || 'spark',
+        'cluster-name' : spark.clusterName || '0',
+        'appId' : appId || '0'
+    };
+    var queryString = serializeQuery(queries);
 
     var xmlHttp = new XMLHttpRequest();
     xmlHttp.timeout = 60 * 1000;
     xmlHttp.ontimeout = function () {
-        if (--asyncMessageCounter == 0) {
+        if (--asyncMessageCounter === 0) {
             $('body').css("cursor", "default");
         }
     };
@@ -39,21 +59,28 @@ function getMessageAsync(url, callback) {
     $('body').css("cursor", "progress");
 
     xmlHttp.onreadystatechange = function () {
-        if (xmlHttp.readyState == 4) {
-            if (--asyncMessageCounter == 0) {
+        if (xmlHttp.readyState === 4) {
+            if (--asyncMessageCounter === 0) {
                 $('body').css("cursor", "default");
             }
-            if (xmlHttp.status == 200 || xmlHttp.status == 201) {
+            if (xmlHttp.status === 200 || xmlHttp.status === 201) {
                 var s = xmlHttp.responseText;
-                if (s == "") {
+                if (s === '') {
                     return;
                 }
-                callback(s);
+                if (callback) {
+                    callback(s);
+                }
             }
         }
     };
-    xmlHttp.open("GET", url, true);
+
+    xmlHttp.open('GET', spark.localhost + url + '?' + queryString, true);
     xmlHttp.send(null);
+}
+
+function sendActionSingle(url) {
+    getMessageAsync(url, null, null, spark.appId)
 }
 
 function reloadTableStyle() {
@@ -69,4 +96,10 @@ function formatServerTime(gmtTime) {
     var formatTime = d3.timeFormat("%b %d, %Y %H:%M:%S");
     var ptime = strictIsoParse(gmtTime);
     return formatTime(ptime);
+}
+
+
+function getTimeIntervalByMins(time1, time2) {
+    var strictIsoParse = d3.utcParse("%Y-%m-%dT%H:%M:%S.%LGMT");
+    return ((strictIsoParse(time1) - strictIsoParse(time2))/(1000 * 60.0)).toFixed(2);
 }

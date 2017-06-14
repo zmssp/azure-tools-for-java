@@ -22,7 +22,7 @@
 package com.microsoft.azure.hdinsight.jobs;
 
 import com.intellij.openapi.components.ApplicationComponent;
-import com.microsoft.azure.hdinsight.spark.jobs.JobViewDummyHttpServer;
+import com.microsoft.azure.hdinsight.spark.jobs.JobViewHttpServer;
 import org.jetbrains.annotations.NotNull;
 
 public class JobViewApplicationComponent implements ApplicationComponent {
@@ -35,11 +35,11 @@ public class JobViewApplicationComponent implements ApplicationComponent {
 
     @Override
     public void initComponent() {
-        JobViewDummyHttpServer.initlize();
+        JobViewHttpServer.initialize();
     }
 
     @Override
     public void disposeComponent() {
-        JobViewDummyHttpServer.close();
+        JobViewHttpServer.close();
     }
 }

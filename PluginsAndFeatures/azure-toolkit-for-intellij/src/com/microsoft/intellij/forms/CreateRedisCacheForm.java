@@ -85,6 +85,7 @@ public class CreateRedisCacheForm extends AzureDialogWrapper {
     private AzureManager azureManager;
     private List<SubscriptionDetail> allSubs;
     private LinkedHashMap<String, String> skus;
+    private List<String> sortedGroups;
     private Runnable onCreate;
 
     // Form Variables
@@ -105,6 +106,7 @@ public class CreateRedisCacheForm extends AzureDialogWrapper {
     private static final String VALIDATION_FORMAT = "The name %s is not available.";
     private static final String CREATING_INDICATOR = "Creating Redis Cache %s ...";
     private static final String CREATING_ERROR_INDICATOR = "An error occurred while attempting to %s.\n%s";
+    private static final String NEW_RES_GRP_ERROR_FORMAT = "The resource group: %s is already existed.";
 
     public CreateRedisCacheForm(Project project) throws IOException {
         super(project, true);
@@ -141,6 +143,13 @@ public class CreateRedisCacheForm extends AzureDialogWrapper {
         }
 
         try {
+            if (newResGrp) {
+                for (String resGrp : sortedGroups) {
+                    if (resGrp.equals(selectedResGrpValue)) {
+                        return new ValidationInfo(String.format(NEW_RES_GRP_ERROR_FORMAT, selectedResGrpValue), txtNewResGrp);
+                    }
+                }
+            }
             for (RedisCache existingRedisCache : azureManager.getAzure(currentSub.getSubscriptionId()).redisCaches().list()) {
                 if (existingRedisCache.name().equals(redisCacheNameValue)) {
                     return new ValidationInfo(String.format(VALIDATION_FORMAT, redisCacheNameValue), txtRedisName);
@@ -370,7 +379,7 @@ public class CreateRedisCacheForm extends AzureDialogWrapper {
         }
         List<ResourceGroup> groups = AzureModel.getInstance().getSubscriptionToResourceGroupMap().get(selectedSub);
         if (groups != null) {
-            List<String> sortedGroups = groups.stream().map(ResourceGroup::name).sorted().collect(Collectors.toList());
+            sortedGroups = groups.stream().map(ResourceGroup::name).sorted().collect(Collectors.toList());
             cbUseExist.setModel(new DefaultComboBoxModel<>(sortedGroups.toArray(new String[sortedGroups.size()])));
         }
     }

@@ -20,6 +20,7 @@
 package com.microsoft.azuretools.azureexplorer.helpers;
 
 import java.io.File;
+import java.net.URL;
 import java.text.DecimalFormat;
 import java.util.Map;
 
@@ -32,6 +33,7 @@ import org.eclipse.ui.IEditorDescriptor;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 
@@ -45,6 +47,7 @@ import com.microsoft.azuretools.azureexplorer.editors.QueueFileEditor;
 import com.microsoft.azuretools.azureexplorer.editors.StorageEditorInput;
 import com.microsoft.azuretools.azureexplorer.editors.TableFileEditor;
 import com.microsoft.azuretools.azureexplorer.forms.OpenSSLFinderForm;
+import com.microsoft.azuretools.azureexplorer.views.RedisPropertyView;
 import com.microsoft.azuretools.core.utils.PluginUtil;
 import com.microsoft.tooling.msservices.helpers.UIHelper;
 import com.microsoft.tooling.msservices.helpers.azure.sdk.StorageClientSDKManager;
@@ -53,11 +56,15 @@ import com.microsoft.tooling.msservices.model.storage.ClientStorageAccount;
 import com.microsoft.tooling.msservices.model.storage.Queue;
 import com.microsoft.tooling.msservices.model.storage.StorageServiceTreeItem;
 import com.microsoft.tooling.msservices.model.storage.Table;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.rediscache.RedisCacheNode;
 
 public class UIHelperImpl implements UIHelper {
     private Map<Class<? extends StorageServiceTreeItem>, String> type2Editor = ImmutableMap.of(BlobContainer.class, "com.microsoft.azuretools.azureexplorer.editors.BlobExplorerFileEditor",
             Queue.class, "com.microsoft.azuretools.azureexplorer.editors.QueueFileEditor",
             Table.class, "com.microsoft.azuretools.azureexplorer.editors.TableFileEditor");
+    
+    private static final String UNABLE_TO_OPEN_BROWSER = "Unable to open external web browser";
+    private static final String UNABLE_TO_GET_REDIS_PROPERTY = "Error opening RedisPropertyView";
 
     @Override
     public void showException(final String message,
@@ -246,6 +253,48 @@ public class UIHelperImpl implements UIHelper {
     @Override
     public boolean isDarkTheme() {
         return false;
+    }
+    
+    @Override
+    public void openRedisPropertyView(RedisCacheNode node) {
+        String sid = node.getSubscriptionId();
+        String resId = node.getResourceId();
+        if (sid == null || resId == null) {
+            return;
+        }
+        try {
+            IWorkbenchWindow activeWorkbenchWindow = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+            if (activeWorkbenchWindow == null) {
+                return;
+            }
+            IWorkbenchPage page = activeWorkbenchWindow.getActivePage();
+            if (page == null) {
+                return;
+            }
+            if (node.getResourceId() == null) {
+                showError(UNABLE_TO_GET_REDIS_PROPERTY, UNABLE_TO_GET_REDIS_PROPERTY);
+                return;
+            }
+            final RedisPropertyView view = (RedisPropertyView) page.showView(RedisPropertyView.ID, node.getResourceId(),
+                    IWorkbenchPage.VIEW_ACTIVATE);
+            Display.getDefault().asyncExec(new Runnable() {
+                @Override
+                public void run() {
+                    view.readProperty(sid, resId);
+                }
+            });
+        } catch (PartInitException e) {
+            showException(UNABLE_TO_GET_REDIS_PROPERTY, e, UNABLE_TO_GET_REDIS_PROPERTY, false, false);
+        }
+    }
+    
+    @Override
+    public void openInBrowser(String link) {
+        try {
+            PlatformUI.getWorkbench().getBrowserSupport().getExternalBrowser().openURL(new URL(link));
+        } catch (Exception e) {
+            showException(UNABLE_TO_OPEN_BROWSER, e, UNABLE_TO_OPEN_BROWSER, false, false);
+        }
     }
     
     public static String readableFileSize(long size) {
