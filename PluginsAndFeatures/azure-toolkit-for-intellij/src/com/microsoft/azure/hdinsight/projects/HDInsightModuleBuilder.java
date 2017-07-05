@@ -23,11 +23,15 @@ package com.microsoft.azure.hdinsight.projects;
 
 import com.intellij.ide.util.projectWizard.*;
 import com.intellij.openapi.Disposable;
+import com.intellij.openapi.module.ModifiableModuleModel;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
+import com.intellij.openapi.module.ModuleWithNameAlreadyExists;
+import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.util.IconLoader;
+import com.intellij.openapi.util.InvalidDataException;
 import com.intellij.packaging.artifacts.ArtifactManager;
 import com.intellij.packaging.elements.CompositePackagingElement;
 import com.intellij.packaging.elements.PackagingElementFactory;
@@ -37,10 +41,13 @@ import com.microsoft.azure.hdinsight.common.CommonConst;
 import com.microsoft.azure.hdinsight.projects.ui.HDInsightProjectTypeStep;
 import com.microsoft.azuretools.telemetry.AppInsightsClient;
 import com.microsoft.intellij.hdinsight.messages.HDInsightBundle;
+import org.jdom.JDOMException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -52,9 +59,6 @@ public class HDInsightModuleBuilder extends JavaModuleBuilder implements ModuleB
     private List<ProjectTemplate> templates;
     private SparkVersion sparkVersion;
     private String sbtVersion;
-
-    public static final String UniqueKeyName = "UniqueKey";
-    public static final String UniqueKeyValue = "HDInsightTool";
 
     public HDInsightModuleBuilder() {
         this.selectedExternalSystem = HDInsightExternalSystem.MAVEN;
@@ -104,6 +108,17 @@ public class HDInsightModuleBuilder extends JavaModuleBuilder implements ModuleB
         }
     }
 
+    @NotNull
+    @Override
+    public Module createModule(@NotNull ModifiableModuleModel moduleModel) throws InvalidDataException, IOException, ModuleWithNameAlreadyExists, JDOMException, ConfigurationException {
+        if (this.selectedExternalSystem == HDInsightExternalSystem.SBT) {
+            // update module file name to lower case
+            // some with the logic in scala plugin when create SBT module
+            this.updateModulePath();
+        }
+        return super.createModule(moduleModel);
+    }
+
     @Nullable
     @Override
     public ModuleWizardStep getCustomOptionsStep(WizardContext context, Disposable parentDisposable) {
@@ -114,7 +129,6 @@ public class HDInsightModuleBuilder extends JavaModuleBuilder implements ModuleB
 
     @Override
     public void moduleCreated(@NotNull Module module) {
-        module.setOption(UniqueKeyName, UniqueKeyValue);
         createDefaultArtifact(module);
         switch(this.selectedExternalSystem) {
             case MAVEN:
@@ -154,12 +168,18 @@ public class HDInsightModuleBuilder extends JavaModuleBuilder implements ModuleB
         return this.selectedExternalSystem;
     }
 
+    private void updateModulePath() {
+        File file = new File(this.getModuleFilePath());
+        String path = file.getParent() + "/" + file.getName().toLowerCase();
+        this.setModuleFilePath(path);
+    }
+
     private void initTemplates() {
         this.templates = new ArrayList<>();
-        this.templates.add(new HDInsightProjectTemplate(HDInsightTemplatesType.Scala));
         this.templates.add(new HDInsightProjectTemplate(HDInsightTemplatesType.Java));
-        this.templates.add(new HDInsightProjectTemplate(HDInsightTemplatesType.ScalaLocalSample));
+        this.templates.add(new HDInsightProjectTemplate(HDInsightTemplatesType.Scala));
         this.templates.add(new HDInsightProjectTemplate(HDInsightTemplatesType.JavaLocalSample));
+        this.templates.add(new HDInsightProjectTemplate(HDInsightTemplatesType.ScalaLocalSample));
         this.templates.add(new HDInsightProjectTemplate(HDInsightTemplatesType.ScalaClusterSample));
     }
 

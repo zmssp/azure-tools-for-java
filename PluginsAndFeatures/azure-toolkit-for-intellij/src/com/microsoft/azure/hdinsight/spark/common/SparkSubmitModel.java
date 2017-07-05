@@ -195,7 +195,7 @@ public class SparkSubmitModel {
                                         "\\n");
 
                                 postEventProperty.put("IsSubmitSucceed", "false");
-                                postEventProperty.put("SubmitFailedReason", errorMessage.substring(0, 50));
+                                postEventProperty.put("SubmitFailedReason", HDInsightUtil.normalizeTelemetryMessage(errorMessage));
                                 AppInsightsClient.create(HDInsightBundle.message("SparkProjectCompileFailed"), null, postEventProperty);
 
                                 showCompilerErrorMessage(compileContext);
@@ -248,7 +248,7 @@ public class SparkSubmitModel {
                                         "\\n");
 
                                 postEventProperty.put("IsSubmitSucceed", "false");
-                                postEventProperty.put("SubmitFailedReason", errorMessage.substring(0, 50));
+                                postEventProperty.put("SubmitFailedReason", HDInsightUtil.normalizeTelemetryMessage(errorMessage));
 
                                 AppInsightsClient.create(
                                         HDInsightBundle.message("SparkProjectDebugCompileFailed"),
