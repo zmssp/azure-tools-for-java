@@ -24,13 +24,12 @@ package com.microsoft.azuretools.container.views;
 
 import com.microsoft.azuretools.core.mvp.ui.base.MvpView;
 
-public interface StepOnePageView extends MvpView{
-    void showInfomation(String string);
-
+public interface StepOnePageView extends MvpView {
     void fillRegistryInfo(String registryUrl, String username, String password);
 
-    void setWidgetsEnabledStatus(boolean enableStatus);
-    
-    void setCompleteStatus(boolean flag);
-    
+    void onRequestPending(Object payload);
+
+    void onRequestSucceed(Object payload);
+
+    void onRequestFail(Object payload);
 }

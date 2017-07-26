@@ -22,8 +22,9 @@
 
 package com.microsoft.azuretools.container.presenters;
 
-import com.microsoft.azuretools.core.mvp.ui.base.MvpPresenter;
+import com.microsoft.azuretools.container.DockerRuntime;
 import com.microsoft.azuretools.container.views.StepOnePageView;
+import com.microsoft.azuretools.core.mvp.ui.base.MvpPresenter;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.spotify.docker.client.DockerClient;
 import com.spotify.docker.client.ProgressHandler;
@@ -32,18 +33,22 @@ import com.spotify.docker.client.messages.ProgressMessage;
 import com.spotify.docker.client.messages.RegistryAuth;
 
 import rx.Observable;
-import rx.schedulers.Schedulers;
-
-import com.microsoft.azuretools.container.ConsoleLogger;
-import com.microsoft.azuretools.container.DockerRuntime;
 
 public class StepOnePagePresenter<V extends StepOnePageView> extends MvpPresenter<V> {
 
-    // StepOne Page
+    private static final String TEXT_PUSHING_LATEST_IMAGE_TO_REGISTRY = "Pushing latest image to registry";
+
+    /**
+     * onPushLatestImageToRegistry.
+     * 
+     * @param registryUrl
+     * @param registryUsername
+     * @param registryPassword
+     * @return
+     */
     public boolean onPushLatestImageToRegistry(String registryUrl, String registryUsername, String registryPassword) {
         try {
-            getMvpView().showInfomation("Try pushing image ...");
-
+            getMvpView().onRequestPending(TEXT_PUSHING_LATEST_IMAGE_TO_REGISTRY);
             DockerClient dockerClient = DockerRuntime.getInstance().getDockerBuilder().build();
             ProgressHandler progressHandler = new ProgressHandler() {
                 @Override
@@ -58,27 +63,26 @@ public class StepOnePagePresenter<V extends StepOnePageView> extends MvpPresente
             Observable.fromCallable(() -> {
                 doPushImage(dockerClient, registryUrl, registryUsername, registryPassword,
                         DockerRuntime.getInstance().getLatestImageName(), progressHandler);
+                updateRuntimeRegistryInfo(registryUrl, registryUsername, registryPassword);
                 return null;
-            }).subscribeOn(Schedulers.io()).subscribe(wal -> {
+            }).subscribeOn(getSchedulerProvider().io()).subscribe(wal -> {
                 // persist registry information
                 DefaultLoader.getIdeHelper().invokeAndWait(() -> {
-                    doUpdateRuntimeRegistryInfo(registryUrl, registryUsername, registryPassword);
-                    V v = getMvpView();
-                    if (v != null) {
-                        v.showInfomation("Task OK");
-                        v.setWidgetsEnabledStatus(false);
-                        v.setCompleteStatus(true);
+                    if (isViewDetached()) {
+                        return;
                     }
+                    V v = getMvpView();
+                    v.onRequestSucceed(TEXT_PUSHING_LATEST_IMAGE_TO_REGISTRY);
                 });
-            }, e -> {
+            }, err -> {
+                System.err.println("onPushLatestImageToRegistry@StepOnePagePresenter");
                 DefaultLoader.getIdeHelper().invokeAndWait(() -> {
-                    V v = getMvpView();
-                    if (v != null) {
-                        v.showInfomation("Task FAIL");
-                        v.setWidgetsEnabledStatus(true);
-                        v.setCompleteStatus(false);
+                    if (isViewDetached()) {
+                        return;
                     }
-                    ConsoleLogger.error("onPushLatestImageToRegistry@StepOnePagePresenter");
+                    V v = getMvpView();
+                    v.onRequestFail(TEXT_PUSHING_LATEST_IMAGE_TO_REGISTRY);
+                    v.onErrorWithException(TEXT_PUSHING_LATEST_IMAGE_TO_REGISTRY, (Exception) err);
                 });
             });
         } catch (Exception e) {
@@ -89,7 +93,7 @@ public class StepOnePagePresenter<V extends StepOnePageView> extends MvpPresente
     }
 
     public void onUpdateRegistryInfo(String registryUrl, String registryUsername, String registryPassword) {
-        doUpdateRuntimeRegistryInfo(registryUrl, registryUsername, registryPassword);
+        updateRuntimeRegistryInfo(registryUrl, registryUsername, registryPassword);
     }
 
     public void onLoadRegistryInfo() {
@@ -98,7 +102,7 @@ public class StepOnePagePresenter<V extends StepOnePageView> extends MvpPresente
     }
 
     // Private Helpers
-    private void doUpdateRuntimeRegistryInfo(String registryUrl, String registryUsername, String registryPassword) {
+    private void updateRuntimeRegistryInfo(String registryUrl, String registryUsername, String registryPassword) {
         DockerRuntime.getInstance().setRegistryUrl(registryUrl);
         DockerRuntime.getInstance().setRegistryUsername(registryUsername);
         DockerRuntime.getInstance().setRegistryPassword(registryPassword);

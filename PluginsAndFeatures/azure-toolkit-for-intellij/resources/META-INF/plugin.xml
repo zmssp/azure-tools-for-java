@@ -1,19 +1,28 @@
 <idea-plugin version="2">
   <id>com.microsoft.tooling.msservices.intellij.azure</id>
   <name>Azure Toolkit for IntelliJ</name>
-  <version>3.0.5</version>
+  <version>3.0.6</version>
   <vendor email="java@microsoft.com" url="http://www.microsoft.com">Microsoft</vendor>
 
   <description><![CDATA[
       Azure Toolkit for IntelliJ IDEA.
     ]]></description>
 
-  <change-notes><![CDATA[
+  <change-notes>
+    <![CDATA[
+    <html>
+      <h3>[3.0.6]</h3>
+      <ul>
+        <li>Added the Redis Cache Explorer that allows users to scan/get keys and their values.</li>
+        <li>Improved Spark job remote debugging support(show log in console, apply and load debugging config).</li>
+        <li>Fixed some bugs.</li>
+      </ul>
+    </html>
     ]]>
   </change-notes>
 
   <!-- please see https://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges for description -->
-  <idea-version since-build="141"/>
+  <idea-version since-build="171.3780" until-build="172.*"/>
   <resource-bundle>com.microsoft.intellij.ui.messages.messages</resource-bundle>
   <resource-bundle>com.microsoft.intellij.hdinsight.messages.messages</resource-bundle>
   <depends optional="true">org.intellij.scala</depends>
@@ -46,6 +55,7 @@
     <fileEditorProvider implementation="com.microsoft.intellij.helpers.storage.QueueExplorerFileEditorProvider"/>
     <fileEditorProvider implementation="com.microsoft.intellij.helpers.storage.TableExplorerFileEditorProvider"/>
     <fileEditorProvider implementation="com.microsoft.intellij.helpers.rediscache.RedisCachePropertyViewProvider"/>
+    <fileEditorProvider implementation="com.microsoft.intellij.helpers.rediscache.RedisCacheExplorerProvider"/>
     <toolWindow
           anchor="left"
           factoryClass="com.microsoft.intellij.components.ServerExplorerToolWindowFactory"
@@ -61,10 +71,10 @@
         canCloseContents="false"
         icon="/icons/SparkSubmissionToolWindow.png"/>
 
+    <!--<configurationType implementation="com.microsoft.intellij.runner.webapp.WebAppConfigurationType"/>-->
     <configurationType implementation="com.microsoft.azure.hdinsight.spark.run.configuration.RemoteDebugRunConfigurationType"/>
+    <!--<programRunner implementation="com.microsoft.intellij.runner.webapp.webappconfig.WebAppRunner"/>-->
     <programRunner implementation="com.microsoft.azure.hdinsight.spark.run.SparkBatchJobDebuggerRunner" />
-    <programRunner implementation="com.microsoft.azure.hdinsight.spark.run.SparkBatchJobRunner" />
-
   </extensions>
 
   <application-components>
@@ -97,6 +107,9 @@
             text="Publish as Azure Web App..." description="Azure website deployment for Java"
             icon="/icons/PublishWebApp_16.png">
     </action>
+    <!--<action id="Actions.WebDeployAction" class="com.microsoft.intellij.actions.WebDeployAction"-->
+            <!--text="Deploy to Azure" description="Deploy to Azure">-->
+    <!--</action>-->
     <action id="Actions.AzureDockerHostDeploy" class="com.microsoft.intellij.actions.AzureDockerHostDeployAction"
             text="Publish as Docker Container..." description="Azure website deployment for Java on Docker"
             icon="/icons/PublishDockerContainer_16.png">
@@ -117,9 +130,24 @@
     <action id="AzureToolkit.AzureSignIn" class="com.microsoft.azuretools.ijidea.actions.AzureSignInAction" text="Azure Sign In..." />
     <action id="AzureToolkit.SelectSubscriptions" class="com.microsoft.azuretools.ijidea.actions.SelectSubscriptionsAction" text="Select Subscriptions..."
             description="ShowSubscriptionsAction" />
+    <action id="Actions.AddDockerSupport" class="com.microsoft.intellij.actions.DockerizeAction"
+            text="Add Docker Support..." description="Azure website deployment for Java"
+            icon="/icons/AddDockerSupport_16.png">
+    </action>
+    <action id="Actions.DockerRun" class="com.microsoft.intellij.actions.DockerRunAction"
+            text="Docker Run..." description="Azure website deployment for Java"
+            icon="/icons/DockerRun_16.png">
+    </action>
+    <action id="Actions.DockerPublish" class="com.microsoft.intellij.actions.DockerPublishAction"
+            text="Publish to Web App on Linux..." description="Azure website deployment for Java"
+            icon="/icons/PublishWebAppOnLinux_16.png">
+    </action>
 
     <group id="AzurePopupGroup" text="Azure" description="Azure" icon="/icons/azure.png" popup="true"
            class="com.microsoft.intellij.actions.AzurePopupGroup">
+      <!-- <reference ref="Actions.AddDockerSupport"/>
+      <reference ref="Actions.DockerRun"/>
+      <reference ref="Actions.DockerPublish"/> -->
       <reference ref="Actions.AzureWebDeploy"/>
       <reference ref="Actions.AzureDockerHostDeploy"/>
       <separator/>
@@ -128,6 +156,8 @@
       <reference ref="Actions.LibraryConfigurationAction"/>
       <separator/>
       <reference ref="AzureToolkit.AzureSignIn"/>
+      <!--<separator/>-->
+      <!--<reference ref="Actions.WebDeployAction"/>-->
     </group>
 
     <group id="AzureToolbarGroup" text="Azure" description="Azure">

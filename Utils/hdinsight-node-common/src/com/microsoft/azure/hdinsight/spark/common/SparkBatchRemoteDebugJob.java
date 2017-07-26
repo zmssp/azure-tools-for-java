@@ -27,6 +27,7 @@ import com.microsoft.azure.hdinsight.sdk.common.HttpResponse;
 import com.microsoft.azure.hdinsight.sdk.rest.ObjectConvertUtils;
 import com.microsoft.azure.hdinsight.sdk.rest.yarn.rm.App;
 import com.microsoft.azure.hdinsight.sdk.rest.yarn.rm.AppResponse;
+import com.microsoft.azure.hdinsight.spark.jobs.JobUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -185,9 +186,13 @@ public class SparkBatchRemoteDebugJob implements ISparkBatchDebugJob, ILogger {
                             "Bad spark job response: " + httpResponse.getMessage()));
 
             this.setBatchId(jobResp.getId());
+
+            return this;
         }
 
-        return this;
+        throw new UnknownServiceException(String.format(
+                "Failed to submit Spark remove debug job. error code: %d, type: %s, reason: %s.",
+                httpResponse.getCode(), httpResponse.getContent(), httpResponse.getMessage()));
     }
 
     /**
@@ -220,22 +225,16 @@ public class SparkBatchRemoteDebugJob implements ISparkBatchDebugJob, ILogger {
     public int getSparkDriverDebuggingPort() throws IOException {
         String driverLogUrl = this.getSparkJobDriverLogUrl(this.getConnectUri(), this.getBatchId());
 
-        try {
-            /*
-             * The driverLogUrl sample here is:
-             *     https://spkdbg.azurehdinsight.net/yarnui/10.0.0.15/node/containerlogs/container_e02_1492415936046_0015_01_000001/livy
-             */
-            HttpResponse httpResponse = this.getSubmission().getHttpResponseViaGet(
-                    new URI(driverLogUrl + "/").resolve("stdout?start=-4096").toString());
+        int port = this.parseJvmDebuggingPort(JobUtils.getInformationFromYarnLogDom(
+                this.getSubmission().getCredentialsProvider(),
+                driverLogUrl,
+                "stdout",
+                -4096,
+                0));
 
-            if (httpResponse.getCode() >= 200 && httpResponse.getCode() < 300) {
-                int port = this.parseJvmDebuggingPort(httpResponse.getMessage());
-
-                if (port > 0) {
-                    return port;
-                }
-            }
-        } catch (URISyntaxException ignore) { }
+        if (port > 0) {
+            return port;
+        }
 
         throw new UnknownServiceException("JVM debugging port is not listening");
     }
@@ -275,31 +274,21 @@ public class SparkBatchRemoteDebugJob implements ISparkBatchDebugJob, ILogger {
     }
 
     /**
-     * Parse JVM debug port from Yarn container log HTML web page
+     * Parse JVM debug port from listening string
      *
-     * @param html the HTML content to parse
+     * @param listening the listening message
      * @return the listening port found, otherwise -1
      */
-    protected int parseJvmDebuggingPort(String html) {
-        Document doc = Jsoup.parse(html);
-
+    protected int parseJvmDebuggingPort(String listening) {
         /*
-         * The content about JVM debug port message looks like:
-         * <td class="content">
-         *     <pre>...</pre>
-         *     <pre>Listening for transport dt_socket at address: 6006 </pre>
-         * </td>
+         * The content about JVM debug port listening message looks like:
+         *     Listening for transport dt_socket at address: 6006
          */
-        Element log = doc.select("td.content").select("pre").last();
-        if (log == null) {
-            return -1;
-        }
 
-        Pattern debugPortRegex = Pattern.compile("Listening for transport dt_socket at address: (?<port>\\d+)");
-        Matcher debugPortMatcher = debugPortRegex.matcher(log.text());
+        Pattern debugPortRegex = Pattern.compile("Listening for transport dt_socket at address: (?<port>\\d+)\\s*");
+        Matcher debugPortMatcher = debugPortRegex.matcher(listening);
 
         return debugPortMatcher.matches() ? Integer.parseInt(debugPortMatcher.group("port")) : -1;
-
     }
 
     /**
@@ -410,7 +399,7 @@ public class SparkBatchRemoteDebugJob implements ISparkBatchDebugJob, ILogger {
      * @return the Spark Job driver log URL
      * @throws IOException exceptions in transaction
      */
-    protected String getSparkJobDriverLogUrl(URI batchBaseUri, int batchId) throws IOException {
+    public String getSparkJobDriverLogUrl(URI batchBaseUri, int batchId) throws IOException {
         int retries = 0;
 
         do {
@@ -508,7 +497,7 @@ public class SparkBatchRemoteDebugJob implements ISparkBatchDebugJob, ILogger {
                 submissionParameter.getFile(),
                 submissionParameter.getMainClassName(),
                 submissionParameter.getReferencedFiles(),
-                submissionParameter.getReferencedFiles(),
+                submissionParameter.getReferencedJars(),
                 submissionParameter.getArgs(),
                 jobConfigWithDebug
         );
