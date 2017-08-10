@@ -589,6 +589,7 @@ public class WebAppSettingPanel implements WebAppDeployMvpView {
 
     @Override
     public void fillSubscription(List<Subscription> subscriptions) {
+        cbSubscription.removeAllItems();
         for (Subscription subscription: subscriptions) {
             cbSubscription.addItem(subscription);
             if (Comparing.equal(subscription.subscriptionId(), webAppConfiguration.getSubscriptionId())) {
@@ -599,6 +600,7 @@ public class WebAppSettingPanel implements WebAppDeployMvpView {
 
     @Override
     public void fillResourceGroup(List<ResourceGroup> resourceGroups) {
+        cbExistResGrp.removeAllItems();
         for (ResourceGroup group: resourceGroups) {
             cbExistResGrp.addItem(group);
             if (Comparing.equal(group.name(), webAppConfiguration.getResourceGroup())) {
@@ -609,6 +611,7 @@ public class WebAppSettingPanel implements WebAppDeployMvpView {
 
     @Override
     public void fillAppServicePlan(List<AppServicePlan> appServicePlans) {
+        cbExistAppServicePlan.removeAllItems();
         for (AppServicePlan plan: appServicePlans) {
             if (Comparing.equal(plan.operatingSystem(), OperatingSystem.WINDOWS)) {
                 cbExistAppServicePlan.addItem(plan);
@@ -621,6 +624,7 @@ public class WebAppSettingPanel implements WebAppDeployMvpView {
 
     @Override
     public void fillLocation(List<Location> locations) {
+        cbLocation.removeAllItems();
         for (Location location: locations) {
             cbLocation.addItem(location);
             if (Comparing.equal(location.name(), webAppConfiguration.getRegion())) {
@@ -631,6 +635,7 @@ public class WebAppSettingPanel implements WebAppDeployMvpView {
 
     @Override
     public void fillPricingTier(List<PricingTier> prices) {
+        cbPricing.removeAllItems();
         for (PricingTier price: prices) {
             cbPricing.addItem(price);
             if (Comparing.equal(price.toString(), webAppConfiguration.getPricing())) {
@@ -641,6 +646,7 @@ public class WebAppSettingPanel implements WebAppDeployMvpView {
 
     @Override
     public void fillWebContainer(List<WebAppUtils.WebContainerMod> webContainers) {
+        cbWebContainer.removeAllItems();
         for (WebAppUtils.WebContainerMod container: webContainers) {
             cbWebContainer.addItem(container);
             if (Comparing.equal(container.toString(), webAppConfiguration.getWebContainer())) {
@@ -651,6 +657,7 @@ public class WebAppSettingPanel implements WebAppDeployMvpView {
 
     @Override
     public void fillThirdPartyJdk(List<AzulZuluModel> jdks) {
+        cbThirdPartyJdk.removeAllItems();
         for (AzulZuluModel jdk: jdks) {
             cbThirdPartyJdk.addItem(jdk);
             if (Comparing.equal(jdk.getDownloadUrl(), webAppConfiguration.getJdkUrl())) {
