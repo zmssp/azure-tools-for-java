@@ -105,7 +105,7 @@ public class AzureWebAppMvpModelTest {
         try {
             WebApp result = azureWebAppMvpModel.getWebAppById(MOCK_SUBSCRIPTION, "test");
             assert(result.toString()).equals("testApp");
-        } catch (IOException e) {
+        } catch (Exception e) {
             fail();
         }
     }
