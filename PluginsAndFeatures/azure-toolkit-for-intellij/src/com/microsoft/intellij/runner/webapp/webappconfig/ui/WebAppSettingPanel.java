@@ -441,14 +441,9 @@ public class WebAppSettingPanel implements WebAppDeployMvpView {
     public void apply(@NotNull WebAppConfiguration webAppConfiguration) {
         // Get output file full path and file name
         if (isArtifact && lastSelectedArtifact != null) {
-            webAppConfiguration.setTargetPath(lastSelectedArtifact.getOutputFilePath());
-            Path p = Paths.get(webAppConfiguration.getTargetPath());
-            if (p != null) {
-                webAppConfiguration.setTargetName(p.getFileName().toString());
-            } else {
-                webAppConfiguration.setTargetName(lastSelectedArtifact.getName()
-                        + "." + lastSelectedArtifact.getArtifactType().getId());
-            }
+            String targetPath = lastSelectedArtifact.getOutputFilePath();
+            webAppConfiguration.setTargetPath(targetPath);
+            webAppConfiguration.setTargetName(Paths.get(targetPath).getFileName().toString());
         } else {
             MavenProject mavenProject = (MavenProject) cbMavenProject.getSelectedItem();
             if (mavenProject != null) {
