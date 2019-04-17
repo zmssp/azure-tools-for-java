@@ -20,25 +20,13 @@
  * SOFTWARE.
  */
 
-package com.microsoft.azure.hdinsight.spark.common;
+package com.microsoft.azuretools.telemetrywrapper;
 
-import com.microsoft.azure.hdinsight.sdk.common.HDIException;
-
-public class SparkJobFinishedException extends HDIException {
-    public SparkJobFinishedException(String message) {
-        super(message);
-    }
-
-    public SparkJobFinishedException(String message, int errorCode) {
-        super(message, errorCode);
-    }
-
-    public SparkJobFinishedException(String message, String errorLog) {
-        super(message, errorLog);
-    }
-
-    public SparkJobFinishedException(String message, Throwable throwable) {
-        super(message, throwable);
-    }
-
+public enum EventType {
+    opStart,
+    opEnd,
+    step,
+    info,
+    warn,
+    error
 }
