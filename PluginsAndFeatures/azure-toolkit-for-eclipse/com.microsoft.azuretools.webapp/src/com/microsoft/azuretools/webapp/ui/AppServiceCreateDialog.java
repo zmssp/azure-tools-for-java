@@ -27,6 +27,7 @@ import static com.microsoft.azuretools.webapp.util.CommonUtils.ASP_CREATE_LOCATI
 import static com.microsoft.azuretools.webapp.util.CommonUtils.ASP_CREATE_PRICING;
 import static com.microsoft.azuretools.webapp.util.CommonUtils.getSelectedItem;
 
+import com.microsoft.azure.management.Azure;
 import com.microsoft.azure.management.appservice.AppServicePlan;
 import com.microsoft.azure.management.appservice.JavaVersion;
 import com.microsoft.azure.management.appservice.OperatingSystem;
@@ -114,6 +115,9 @@ import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
+import rx.Observable;
+import rx.exceptions.Exceptions;
+import rx.schedulers.Schedulers;
 
 public class AppServiceCreateDialog extends AppServiceBaseDialog {
 
@@ -1018,11 +1022,17 @@ public class AppServiceCreateDialog extends AppServiceBaseDialog {
         try {
             Map<String, List<AppServicePlan>> map = new HashMap<>();
             Set<SubscriptionDetail> sdl = AzureModel.getInstance().getSubscriptionToResourceGroupMap().keySet();
-            for (SubscriptionDetail subscriptionDetail : sdl) {
-                List<AppServicePlan> appServicePlans = AzureWebAppMvpModel.getInstance()
-                    .listAppServicePlanBySubscriptionId(subscriptionDetail.getSubscriptionId());
-                map.put(subscriptionDetail.getSubscriptionId(), appServicePlans);
-            }
+            Observable.from(sdl).flatMap((sd) ->
+                Observable.create((subscriber) -> {
+                    try {
+                        List<AppServicePlan> appServicePlans = AzureWebAppMvpModel.getInstance()
+                            .listAppServicePlanBySubscriptionId(sd.getSubscriptionId());
+                        map.put(sd.getSubscriptionId(), appServicePlans);
+                        subscriber.onCompleted();
+                    } catch (Exception e) {
+                        Exceptions.propagate(e);
+                    }
+                }).subscribeOn(Schedulers.io()), sdl.size()).subscribeOn(Schedulers.io()).toBlocking().subscribe();
             sidAspMap = map;
         } catch (Exception ignore) {
         }
@@ -1180,6 +1190,7 @@ public class AppServiceCreateDialog extends AppServiceBaseDialog {
                         }
                         monitor.setTaskName(UPDATING_AZURE_LOCAL_CACHE);
                         AzureModelController.updateResourceGroupMaps(new UpdateProgressIndicator(monitor));
+                        initAspCache();
                         Display.getDefault().asyncExec(() -> AppServiceCreateDialog.super.okPressed());
                         if (AzureUIRefreshCore.listeners != null) {
                             AzureUIRefreshCore.execute(
