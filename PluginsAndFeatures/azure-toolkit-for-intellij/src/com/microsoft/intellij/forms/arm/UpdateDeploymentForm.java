@@ -9,10 +9,10 @@ import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
+import com.intellij.ui.HyperlinkLabel;
 import com.microsoft.azure.management.resources.DeploymentMode;
 import com.microsoft.azure.management.resources.Subscription;
 import com.microsoft.azuretools.utils.AzureModel;
-import com.microsoft.intellij.ui.components.AzureDialogWrapper;
 import com.microsoft.intellij.ui.util.UIUtils;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentNode;
@@ -20,9 +20,12 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.FileReader;
 import java.util.Map;
+import javax.swing.ButtonGroup;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JRadioButton;
+import javax.swing.JTextField;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -30,24 +33,25 @@ import org.jetbrains.annotations.Nullable;
 public class UpdateDeploymentForm extends DeploymentBaseForm {
 
     private JPanel contentPane;
-    private TextFieldWithBrowseButton templateTextField;
     private JLabel subsNameLabel;
     private JLabel rgNameLabel;
     private JLabel deploymentNameLabel;
     private JLabel lblTemplateHover;
     private Project project;
     private final DeploymentNode deploymentNode;
+    private JRadioButton templateFileRadioButton;
+    private JRadioButton templateURLRadioButton;
+    private JTextField templateURLTextField;
+    private TextFieldWithBrowseButton templateTextField;
+    private HyperlinkLabel templateURLLabel;
 
     public UpdateDeploymentForm(Project project, DeploymentNode deploymentNode) {
         super(project, false);
-        this.project = project;
         setModal(true);
         setTitle("Update Resource Template");
+        this.project = project;
         this.deploymentNode = deploymentNode;
-
-        templateTextField.addActionListener(
-            UIUtils.createFileChooserListener(templateTextField, project,
-                FileChooserDescriptorFactory.createSingleLocalFileDescriptor()));
+        initTemplateComponent();
         fill();
         init();
     }
@@ -60,12 +64,19 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
                 try {
-                    String fileText = templateTextField.getText();
-                    String template = IOUtils.toString(new FileReader(fileText));
-                    deploymentNode.getDeployment().update().
-                        withTemplate(template)
-                        .withParameters("{}")
-                        .withMode(DeploymentMode.INCREMENTAL).apply();
+                    if (templateFileRadioButton.isSelected()) {
+                        String fileText = templateTextField.getText();
+                        String content = IOUtils.toString(new FileReader(fileText));
+                        deploymentNode.getDeployment().update().
+                            withTemplate(content)
+                            .withParameters("{}")
+                            .withMode(DeploymentMode.INCREMENTAL).apply();
+                    } else {
+                        deploymentNode.getDeployment().update().
+                            withTemplateLink(templateURLTextField.getText(), "1.0.0.0")
+                            .withParameters("{}")
+                            .withMode(DeploymentMode.INCREMENTAL).apply();
+                    }
                 } catch (Exception e) {
                     DefaultLoader.getIdeHelper().invokeAndWait(() -> DefaultLoader.getUIHelper().
                         showException("Deploy Azure resource Failed", e, "Deploy Azure resource Failed", false, true));
@@ -88,6 +99,36 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
         }
         rgNameLabel.setText(deploymentNode.getDeployment().resourceGroupName());
         deploymentNameLabel.setText(deploymentNode.getDeployment().name());
+    }
+
+    protected void initTemplateComponent() {
+        final ButtonGroup templateGroup = new ButtonGroup();
+        templateGroup.add(templateFileRadioButton);
+        templateGroup.add(templateURLRadioButton);
+        templateFileRadioButton.setSelected(true);
+        templateFileRadioButton.addItemListener((e) -> radioTemplateLogic());
+        templateURLRadioButton.addItemListener((e) -> radioTemplateLogic());
+
+        templateTextField.addActionListener(
+            UIUtils.createFileChooserListener(templateTextField, project,
+                FileChooserDescriptorFactory.createSingleLocalFileDescriptor()));
+        templateURLLabel.setHyperlinkText("Browse for samples");
+        templateURLLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                BrowserUtil.browse(TEMPLATE_URL);
+            }
+        });
+
+        radioTemplateLogic();
+    }
+
+    private void radioTemplateLogic() {
+        boolean isFile = templateFileRadioButton.isSelected();
+        templateTextField.setVisible(isFile);
+        templateURLTextField.setVisible(!isFile);
+        templateURLLabel.setVisible(!isFile);
+        pack();
     }
 
     private void createUIComponents() {

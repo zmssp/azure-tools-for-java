@@ -1,7 +1,6 @@
 package com.microsoft.intellij.forms.arm;
 
 
-import com.intellij.icons.AllIcons;
 import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.progress.ProgressIndicator;
@@ -11,14 +10,15 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.ui.ValidationInfo;
+import com.intellij.ui.HyperlinkLabel;
 import com.microsoft.azure.management.Azure;
+import com.microsoft.azure.management.resources.Deployment.DefinitionStages.WithTemplate;
 import com.microsoft.azure.management.resources.DeploymentMode;
 import com.microsoft.azure.management.resources.ResourceGroup;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
 import com.microsoft.azuretools.authmanage.AuthMethodManager;
 import com.microsoft.azuretools.authmanage.models.SubscriptionDetail;
 import com.microsoft.azuretools.utils.AzureModel;
-import com.microsoft.intellij.ui.components.AzureDialogWrapper;
 import com.microsoft.intellij.ui.util.UIUtils;
 import com.microsoft.intellij.ui.util.UIUtils.ElementWrapper;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
@@ -28,7 +28,6 @@ import java.io.FileReader;
 import java.util.List;
 import java.util.Map;
 import javax.swing.ButtonGroup;
-import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -42,22 +41,21 @@ import org.jetbrains.annotations.Nullable;
 public class CreateDeploymentForm extends DeploymentBaseForm {
 
     private JPanel contentPane;
-    private JPanel resourceGroupPane;
     private JTextField rgNameTextFiled;
     private JComboBox rgNameCb;
     private JRadioButton createNewRgButton;
     private JRadioButton useExistingRgButton;
-    private JRadioButton templateFileButton;
-    private JRadioButton templateURLButton;
-    private TextFieldWithBrowseButton templateTextField;
-    private JTextField templateURLTextField;
     private JTextField deploymentNameTextField;
     private JComboBox regionCb;
     private JLabel usingExistRgRegionLabel;
     private JLabel usingExistRgRegionDetailLabel;
     private JLabel createNewRgRegionLabel;
     private JComboBox subscriptionCb;
-    private JLabel templateURLLabel;
+    private JRadioButton templateFileRadioButton;
+    private JRadioButton templateURLRadioButton;
+    private JTextField templateURLTextField;
+    private TextFieldWithBrowseButton templateTextField;
+    private HyperlinkLabel templateURLLabel;
     private Project project;
 
     public CreateDeploymentForm(Project project) {
@@ -66,7 +64,6 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
         setModal(true);
         setTitle("Create Resource Template");
 
-        resourceGroupPane.setName("Resource Group");
         final ButtonGroup resourceGroup = new ButtonGroup();
         resourceGroup.add(createNewRgButton);
         resourceGroup.add(useExistingRgButton);
@@ -74,25 +71,15 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
         createNewRgButton.addItemListener((e) -> radioRgLogic());
         useExistingRgButton.addItemListener((e) -> radioRgLogic());
 
-        final ButtonGroup templateGroup = new ButtonGroup();
-        templateGroup.add(templateFileButton);
-        templateGroup.add(templateURLButton);
-        templateFileButton.setSelected(true);
-        templateFileButton.addItemListener((e) -> radioTemplateLogic());
-        templateURLButton.addItemListener((e) -> radioTemplateLogic());
-
-        templateTextField.addActionListener(
-            UIUtils.createFileChooserListener(templateTextField, project,
-                FileChooserDescriptorFactory.createSingleLocalFileDescriptor()));
-        subscriptionCb.addActionListener((l) -> fillResourceGroup());
         rgNameCb.addActionListener((l) -> {
             ResourceGroup rg = ((ElementWrapper<ResourceGroup>) rgNameCb.getSelectedItem()).getValue();
             usingExistRgRegionDetailLabel.setText(rg.region().label());
         });
+        subscriptionCb.addActionListener((l) -> fillResourceGroup());
 
+        initTemplateComponent();
         fill();
         radioRgLogic();
-        radioTemplateLogic();
         init();
     }
 
@@ -117,22 +104,28 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
             public void run(@NotNull ProgressIndicator indicator) {
                 try {
                     SubscriptionDetail subs = (SubscriptionDetail) subscriptionCb.getSelectedItem();
-                    String fileText = templateTextField.getText();
-                    String template = IOUtils.toString(new FileReader(fileText));
                     Azure azure = AuthMethodManager.getInstance().getAzureClient(subs.getSubscriptionId());
+                    WithTemplate template;
                     if (createNewRgButton.isSelected()) {
-                        azure.deployments().define(deploymentName)
+                        template = azure
+                            .deployments().define(deploymentName)
                             .withNewResourceGroup(rgNameTextFiled.getText(),
-                                ((ElementWrapper<Region>) regionCb.getSelectedItem()).getValue())
-                            .withTemplate(template)
+                                ((ElementWrapper<Region>) regionCb.getSelectedItem()).getValue());
+                    } else {
+                        template = azure.deployments().define(deploymentName)
+                            .withExistingResourceGroup(
+                                ((ElementWrapper<ResourceGroup>) rgNameCb.getSelectedItem()).getValue());
+                    }
+
+                    if (templateFileRadioButton.isSelected()) {
+                        String fileText = templateTextField.getText();
+                        String content = IOUtils.toString(new FileReader(fileText));
+                        template.withTemplate(content)
                             .withParameters("{}")
                             .withMode(DeploymentMode.INCREMENTAL)
                             .create();
                     } else {
-                        azure.deployments().define(deploymentName)
-                            .withExistingResourceGroup(
-                                ((ElementWrapper<ResourceGroup>) rgNameCb.getSelectedItem()).getValue())
-                            .withTemplate(template)
+                        template.withTemplateLink(templateURLTextField.getText(), "1.0.0.0")
                             .withParameters("{}")
                             .withMode(DeploymentMode.INCREMENTAL)
                             .create();
@@ -144,6 +137,36 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
             }
         });
         close(DialogWrapper.OK_EXIT_CODE, true);
+    }
+
+    protected void initTemplateComponent() {
+        final ButtonGroup templateGroup = new ButtonGroup();
+        templateGroup.add(templateFileRadioButton);
+        templateGroup.add(templateURLRadioButton);
+        templateFileRadioButton.setSelected(true);
+        templateFileRadioButton.addItemListener((e) -> radioTemplateLogic());
+        templateURLRadioButton.addItemListener((e) -> radioTemplateLogic());
+
+        templateTextField.addActionListener(
+            UIUtils.createFileChooserListener(templateTextField, project,
+                FileChooserDescriptorFactory.createSingleLocalFileDescriptor()));
+        templateURLLabel.setHyperlinkText("Browse for samples");
+        templateURLLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                BrowserUtil.browse(TEMPLATE_URL);
+            }
+        });
+
+        radioTemplateLogic();
+    }
+
+    private void radioTemplateLogic() {
+        boolean isFile = templateFileRadioButton.isSelected();
+        templateTextField.setVisible(isFile);
+        templateURLTextField.setVisible(!isFile);
+        templateURLLabel.setVisible(!isFile);
+        pack();
     }
 
     private void fill() {
@@ -179,29 +202,14 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
 
     private void radioRgLogic() {
         boolean isCreateNewRg = createNewRgButton.isSelected();
-        rgNameTextFiled.setEnabled(isCreateNewRg);
-        regionCb.setEnabled(isCreateNewRg);
-        createNewRgRegionLabel.setEnabled(isCreateNewRg);
+        rgNameTextFiled.setVisible(isCreateNewRg);
+        regionCb.setVisible(isCreateNewRg);
+        createNewRgRegionLabel.setVisible(isCreateNewRg);
 
-        rgNameCb.setEnabled(!isCreateNewRg);
-        usingExistRgRegionLabel.setEnabled(!isCreateNewRg);
-        usingExistRgRegionDetailLabel.setEnabled(!isCreateNewRg);
+        rgNameCb.setVisible(!isCreateNewRg);
+        usingExistRgRegionLabel.setVisible(!isCreateNewRg);
+        usingExistRgRegionDetailLabel.setVisible(!isCreateNewRg);
+        pack();
     }
 
-    private void radioTemplateLogic() {
-        boolean isFile = templateFileButton.isSelected();
-        templateTextField.setEnabled(isFile);
-        templateURLTextField.setEnabled(!isFile);
-        templateURLLabel.setEnabled(!isFile);
-    }
-
-    private void createUIComponents() {
-        templateURLLabel = new JLabel(AllIcons.General.Information);
-        templateURLLabel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                BrowserUtil.browse(TEMPLATE_URL);
-            }
-        });
-    }
 }
