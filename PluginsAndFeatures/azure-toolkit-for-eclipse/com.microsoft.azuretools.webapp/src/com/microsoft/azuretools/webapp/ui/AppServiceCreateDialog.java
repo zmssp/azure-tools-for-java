@@ -74,6 +74,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.runtime.ILog;
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -267,7 +268,7 @@ public class AppServiceCreateDialog extends AppServiceBaseDialog {
     private String packaging = WebAppUtils.TYPE_WAR;
 
     private final String date = new SimpleDateFormat(DATE_FORMAT).format(new Date());
-    private static Map<String, List<AppServicePlan>> sidAspMap = new HashMap<>();
+    private static Map<String, List<AppServicePlan>> sidAspMap = new ConcurrentHashMap<>();
     private Map<String, String> appSettings = new HashMap<>();
     protected WebAppSettingModel model = new WebAppSettingModel();
 
@@ -1020,7 +1021,7 @@ public class AppServiceCreateDialog extends AppServiceBaseDialog {
 
     public static void initAspCache() {
         try {
-            Map<String, List<AppServicePlan>> map = new HashMap<>();
+            Map<String, List<AppServicePlan>> map = new ConcurrentHashMap<>();
             Set<SubscriptionDetail> sdl = AzureModel.getInstance().getSubscriptionToResourceGroupMap().keySet();
             Observable.from(sdl).flatMap((sd) ->
                 Observable.create((subscriber) -> {
