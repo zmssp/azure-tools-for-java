@@ -27,7 +27,6 @@ import static com.microsoft.azuretools.webapp.util.CommonUtils.ASP_CREATE_LOCATI
 import static com.microsoft.azuretools.webapp.util.CommonUtils.ASP_CREATE_PRICING;
 import static com.microsoft.azuretools.webapp.util.CommonUtils.getSelectedItem;
 
-import com.microsoft.azure.management.Azure;
 import com.microsoft.azure.management.appservice.AppServicePlan;
 import com.microsoft.azure.management.appservice.JavaVersion;
 import com.microsoft.azure.management.appservice.OperatingSystem;
