@@ -19,21 +19,35 @@
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.microsoft.azure.hdinsight.common.classifiedexception
 
-import com.microsoft.azure.datalake.store.ADLException
-import java.io.FileNotFoundException
-import java.io.IOException
+package com.microsoft.tooling.msservices.serviceexplorer;
 
-class SparkServiceException(exp: Throwable?) : ClassifiedException(exp) {
-    override val title: String = "Spark Service Error"
-}
+import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
 
-object SparkServiceExceptionFactory : ClassifiedExceptionFactory() {
-    override fun createClassifiedException(exp: Throwable?): ClassifiedException? {
-        return if (exp is IOException
-                && exp !is FileNotFoundException
-                && (exp is ADLException && exp.httpResponseCode != 403))
-            SparkServiceException(exp) else null
+public class WrappedTelemetryNodeActionListener extends NodeActionListener {
+
+    private final NodeActionListener listener;
+    private final String serviceName;
+    private final String operationName;
+
+    public WrappedTelemetryNodeActionListener(String serviceName, String operationName, NodeActionListener listener) {
+        this.serviceName = serviceName;
+        this.operationName = operationName;
+        this.listener = listener;
+    }
+
+    @Override
+    protected void actionPerformed(NodeActionEvent e) throws AzureCmdException {
+        listener.actionPerformed(e);
+    }
+
+    @Override
+    protected String getServiceName() {
+        return this.serviceName;
+    }
+
+    @Override
+    protected String getOperationName(NodeActionEvent e) {
+        return this.operationName;
     }
 }

@@ -29,10 +29,7 @@ import com.microsoft.azure.hdinsight.sdk.cluster.ClusterDetail;
 import com.microsoft.azure.hdinsight.sdk.cluster.IClusterDetail;
 import com.microsoft.azure.hdinsight.sdk.common.*;
 import com.microsoft.azure.hdinsight.sdk.rest.azure.serverless.spark.models.ApiVersion;
-import com.microsoft.azure.hdinsight.sdk.storage.ADLSGen2StorageAccount;
-import com.microsoft.azure.hdinsight.sdk.storage.HDStorageAccount;
-import com.microsoft.azure.hdinsight.sdk.storage.IHDIStorageAccount;
-import com.microsoft.azure.hdinsight.sdk.storage.StorageAccountTypeEnum;
+import com.microsoft.azure.hdinsight.sdk.storage.*;
 import com.microsoft.azure.hdinsight.spark.common.*;
 import com.microsoft.azure.sqlbigdata.sdk.cluster.SqlBigDataLivyLinkClusterDetail;
 import com.microsoft.azuretools.authmanage.AuthMethodManager;
@@ -81,12 +78,12 @@ public class SparkBatchJobDeployFactory implements ILogger {
         if (ClusterManagerEx.getInstance().isHdiReaderCluster(clusterDetail)) {
             try {
                 if (clusterDetail.getHttpUserName() == null || clusterDetail.getHttpPassword() == null) {
-                    throw new ExecutionException("You have Ready-only permission for this cluster. Please link the cluster first.");
+                    throw new ExecutionException("No Ambari permission to submit job to the selected cluster");
                 }
             } catch (HDIException ex) {
                 log().warn("Error getting cluster credential. Cluster Name: " + clusterName);
                 log().warn(ExceptionUtils.getStackTrace(ex));
-                throw new ExecutionException("Error getting Ambari credential for this cluster.");
+                throw new ExecutionException("Error getting Ambari credential for this cluster");
             }
         }
 
@@ -94,14 +91,14 @@ public class SparkBatchJobDeployFactory implements ILogger {
             case BLOB:
                 String storageAccountName = submitModel.getJobUploadStorageModel().getStorageAccount();
                 if (StringUtils.isBlank(storageAccountName)) {
-                    throw new ExecutionException("Can't get the valid storage account.");
+                    throw new ExecutionException("Can't get the valid storage account");
                 }
 
                 String fullStorageBlobName = ClusterManagerEx.getInstance().getBlobFullName(storageAccountName);
                 String key = submitModel.getJobUploadStorageModel().getStorageKey();
                 String container = submitModel.getJobUploadStorageModel().getSelectedContainer();
                 if (StringUtils.isBlank(key) || StringUtils.isBlank(container)) {
-                    throw new ExecutionException("Can't get the valid key or container name.");
+                    throw new ExecutionException("Can't get the valid key or container name");
                 }
 
                 storageAccount = new HDStorageAccount(clusterDetail, fullStorageBlobName, key, false, container);
@@ -112,7 +109,7 @@ public class SparkBatchJobDeployFactory implements ILogger {
                     clusterDetail.getConfigurationInfo();
                     storageAccount = clusterDetail.getStorageAccount();
 
-                    if (storageAccount.getAccountType() == StorageAccountTypeEnum.ADLSGen2) {
+                    if (storageAccount.getAccountType() == StorageAccountType.ADLSGen2) {
                         destinationRootPath = submitModel.getJobUploadStorageModel().getUploadPath();
                         accessKey = ((ADLSGen2StorageAccount) storageAccount).getPrimaryKey();
                         if (StringUtils.isBlank(accessKey)) {
@@ -121,8 +118,8 @@ public class SparkBatchJobDeployFactory implements ILogger {
 
                         httpObservable = new SharedKeyHttpObservable(storageAccount.getName(), accessKey);
                         jobDeploy = new ADLSGen2Deploy(httpObservable, destinationRootPath);
-                    } else if (storageAccount.getAccountType() == StorageAccountTypeEnum.BLOB ||
-                            storageAccount.getAccountType() == StorageAccountTypeEnum.ADLS) {
+                    } else if (storageAccount.getAccountType() == StorageAccountType.BLOB ||
+                            storageAccount.getAccountType() == StorageAccountType.ADLS) {
                         jobDeploy = new LegacySDKDeploy(storageAccount, ctrlSubject);
                     }
                 } catch (Exception ex) {
@@ -135,8 +132,8 @@ public class SparkBatchJobDeployFactory implements ILogger {
                 break;
             case ADLS_GEN1:
                 String rawRootPath = submitModel.getJobUploadStorageModel().getAdlsRootPath();
-                if (StringUtils.isBlank(rawRootPath) || !rawRootPath.matches(SparkBatchJob.AdlsPathPattern)) {
-                    throw new ExecutionException("Invalid adls root path input.");
+                if (StringUtils.isBlank(rawRootPath) || !rawRootPath.matches(StoragePathInfo.AdlsPathPattern)) {
+                    throw new ExecutionException("Invalid adls root path input");
                 }
 
                 destinationRootPath = rawRootPath.endsWith("/") ? rawRootPath : rawRootPath + "/";
@@ -176,7 +173,7 @@ public class SparkBatchJobDeployFactory implements ILogger {
                 }
 
                 if (StringUtils.isBlank(gen2StorageAccount)) {
-                    throw new ExecutionException("Invalid ADLS GEN2 root path.");
+                    throw new ExecutionException("Invalid ADLS GEN2 root path");
                 }
 
                 accessKey = submitModel.getJobUploadStorageModel().getAccessKey();
@@ -197,7 +194,7 @@ public class SparkBatchJobDeployFactory implements ILogger {
                 try {
                     if (clusterDetail instanceof ClusterDetail) {
                         httpObservable = new AzureHttpObservable(clusterDetail.getSubscription().getTenantId(), ApiVersion.VERSION);
-                        jobDeploy = clusterDetail.getStorageAccount().getAccountType() == StorageAccountTypeEnum.ADLS
+                        jobDeploy = clusterDetail.getStorageAccount().getAccountType() == StorageAccountType.ADLS
                                 ? new ADLSGen1HDFSDeploy(clusterDetail, httpObservable, destinationRootPath)
                                 : null;
                     } else if (clusterDetail instanceof SqlBigDataLivyLinkClusterDetail) {
