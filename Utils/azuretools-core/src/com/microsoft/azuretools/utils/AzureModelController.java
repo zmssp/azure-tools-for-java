@@ -326,7 +326,7 @@ public class AzureModelController {
                 }
             }).subscribeOn(Schedulers.io()), sdSet.size()).subscribeOn(Schedulers.io()).subscribe();
 
-        new Thread(() -> {
+        Thread cancelCheckThread = new Thread(() -> {
             try {
                 while (true) {
                     if (progressIndicator != null && progressIndicator.isCanceled()) {
@@ -344,7 +344,9 @@ public class AzureModelController {
                 }
             } catch (Exception ex) {
             }
-        }).start();
+        });
+        cancelCheckThread.setDaemon(true);
+        cancelCheckThread.start();
 
         try {
             countDownLatch.await();
