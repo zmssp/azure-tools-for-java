@@ -43,6 +43,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import rx.Observable;
+import rx.functions.Func1;
+import rx.schedulers.Schedulers;
 
 public class AzureMvpModel {
 
@@ -109,11 +112,11 @@ public class AzureMvpModel {
      * List all the resource groups in selected subscriptions.
      * @return
      */
-    public List<ResourceEx<ResourceGroup>> getResourceGroups() throws IOException, CanceledByUserException {
+    public List<ResourceEx<ResourceGroup>> getResourceGroups(boolean forceUpdate) throws IOException, CanceledByUserException {
         List<ResourceEx<ResourceGroup>> resourceGroups = new ArrayList<>();
         Map<SubscriptionDetail, List<ResourceGroup>> srgMap = AzureModel.getInstance()
             .getSubscriptionToResourceGroupMap();
-        if (srgMap == null || srgMap.size() < 1) {
+        if (srgMap == null || srgMap.size() < 1 || forceUpdate) {
             AzureModelController.updateSubscriptionMaps(null);
         }
         srgMap = AzureModel.getInstance().getSubscriptionToResourceGroupMap();
@@ -159,6 +162,28 @@ public class AzureMvpModel {
             throw new Exception(CANNOT_GET_RESOURCE_GROUP);
         }
         return resourceGroup;
+    }
+
+    public List<Deployment> listAllDeployments() {
+        List<Deployment> deployments = new ArrayList<>();
+        List<Subscription> subs = getSelectedSubscriptions();
+        Observable.from(subs).flatMap((sub) ->
+            Observable.create((subscriber) -> {
+                try {
+                    List<Deployment> sidDeployments = listDeploymentsBySid(sub.subscriptionId());
+                    synchronized (deployments) {
+                        deployments.addAll(sidDeployments);
+                    }
+                } catch (IOException e) {
+                }
+                subscriber.onCompleted();
+            }).subscribeOn(Schedulers.io()), subs.size()).subscribeOn(Schedulers.io()).toBlocking().subscribe();
+        return deployments;
+    }
+
+    public List<Deployment> listDeploymentsBySid(String sid) throws IOException {
+        Azure azure = AuthMethodManager.getInstance().getAzureClient(sid);
+        return azure.deployments().list();
     }
 
     /**
