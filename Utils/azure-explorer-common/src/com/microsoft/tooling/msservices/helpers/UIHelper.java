@@ -26,6 +26,7 @@ import com.microsoft.azuretools.azurecommons.helpers.NotNull;
 import com.microsoft.azuretools.azurecommons.helpers.Nullable;
 import com.microsoft.tooling.msservices.model.storage.*;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.container.ContainerRegistryNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.rediscache.RedisCacheNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.webapp.WebAppNode;
@@ -67,6 +68,8 @@ public interface UIHelper {
     void openRedisPropertyView(@NotNull RedisCacheNode node);
 
     void openRedisExplorer(@NotNull RedisCacheNode node);
+
+    void openDeploymentPropertyView(@NotNull DeploymentNode node);
 
     void openInBrowser(String link);
 

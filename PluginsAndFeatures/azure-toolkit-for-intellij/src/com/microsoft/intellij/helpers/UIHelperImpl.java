@@ -22,6 +22,8 @@
 
 package com.microsoft.intellij.helpers;
 
+import static com.microsoft.intellij.helpers.arm.DeploymentPropertyViewProvider.TYPE;
+
 import com.google.common.collect.ImmutableMap;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileChooser.FileChooserFactory;
@@ -50,6 +52,8 @@ import com.microsoft.azuretools.telemetrywrapper.EventUtil;
 import com.microsoft.intellij.AzurePlugin;
 import com.microsoft.intellij.forms.ErrorMessageForm;
 import com.microsoft.intellij.forms.OpenSSLFinderForm;
+import com.microsoft.intellij.helpers.arm.DeploymentPropertyView;
+import com.microsoft.intellij.helpers.arm.DeploymentPropertyViewProvider;
 import com.microsoft.intellij.helpers.containerregistry.ContainerRegistryPropertyView;
 import com.microsoft.intellij.helpers.containerregistry.ContainerRegistryPropertyViewProvider;
 import com.microsoft.intellij.helpers.rediscache.RedisCacheExplorerProvider;
@@ -64,6 +68,7 @@ import com.microsoft.tooling.msservices.helpers.UIHelper;
 import com.microsoft.tooling.msservices.model.storage.Queue;
 import com.microsoft.tooling.msservices.model.storage.*;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.container.ContainerRegistryNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.rediscache.RedisCacheNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.webapp.WebAppNode;
@@ -366,6 +371,27 @@ public class UIHelperImpl implements UIHelper {
                     RedisCacheNode.REDISCACHE_ICON_PATH, sid, resId);
         }
         fileEditorManager.openFile( itemVirtualFile, true, true);
+    }
+
+    @Override
+    public void openDeploymentPropertyView(DeploymentNode node) {
+        Project project = (Project) node.getProject();
+        FileEditorManager fileEditorManager = FileEditorManager.getInstance(project);
+        if (fileEditorManager == null) {
+            showError(CANNOT_GET_FILE_EDITOR_MANAGER, UNABLE_TO_OPEN_EDITOR_WINDOW);
+            return;
+        }
+        LightVirtualFile itemVirtualFile = searchExistingFile(fileEditorManager, TYPE, node.getId());
+        if (itemVirtualFile == null) {
+            itemVirtualFile = createVirtualFile(node.getName(), TYPE,
+                DeploymentNode.ICON_PATH, node.getSubscriptionId(), node.getId());
+        }
+        FileEditor[] fileEditors = fileEditorManager.openFile(itemVirtualFile, true, true);
+        for (FileEditor fileEditor : fileEditors) {
+            if (fileEditor.getName().equals(DeploymentPropertyView.ID) && fileEditor instanceof DeploymentPropertyView) {
+                ((DeploymentPropertyView) fileEditor).onLoadProperty(node.getDeployment());
+            }
+        }
     }
 
     @Override

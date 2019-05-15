@@ -23,12 +23,14 @@
 package com.microsoft.intellij.serviceexplorer;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.microsoft.azure.hdinsight.serverexplore.HDInsightRootModuleImpl;
 import com.microsoft.azure.hdinsight.serverexplore.action.AddNewClusterAction;
 import com.microsoft.azure.hdinsight.serverexplore.action.AddNewEmulatorAction;
 import com.microsoft.azure.sqlbigdata.serverexplore.SqlBigDataClusterModule;
 import com.microsoft.intellij.serviceexplorer.azure.arm.CreateDeploymentAction;
 import com.microsoft.intellij.serviceexplorer.azure.arm.ExportTemplateAction;
+import com.microsoft.intellij.serviceexplorer.azure.arm.ShowDeploymentPropAction;
 import com.microsoft.intellij.serviceexplorer.azure.arm.UpdateDeploymentAction;
 import com.microsoft.intellij.serviceexplorer.azure.container.PushToContainerRegistryAction;
 import com.microsoft.intellij.serviceexplorer.azure.docker.CreateNewDockerHostAction;
@@ -61,7 +63,10 @@ import com.microsoft.tooling.msservices.serviceexplorer.azure.storage.StorageNod
 import com.microsoft.tooling.msservices.serviceexplorer.azure.storage.TableModule;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.vmarm.VMArmModule;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class NodeActionsMap {
@@ -107,11 +112,11 @@ public class NodeActionsMap {
                 new ImmutableList.Builder<Class<? extends NodeActionListener>>()
                         .add(CreateNewDockerHostAction.class, PublishDockerContainerAction.class).build());
 
-        node2Actions.put(DeploymentNode.class, new ImmutableList.Builder<Class<? extends NodeActionListener>>()
-            .add(ExportTemplateAction.class).build());
+        List<Class<? extends NodeActionListener>> deploymentNodeList = new ArrayList<>();
+        deploymentNodeList.addAll(Arrays.asList(ExportTemplateAction.class, UpdateDeploymentAction.class));
 
         node2Actions.put(DeploymentNode.class, new ImmutableList.Builder<Class<? extends NodeActionListener>>()
-            .add(UpdateDeploymentAction.class).build());
+            .addAll(deploymentNodeList).build());
 
         node2Actions.put(ResourceManagementModule.class, new ImmutableList.Builder<Class<? extends NodeActionListener>>()
             .add(CreateDeploymentAction.class).build());

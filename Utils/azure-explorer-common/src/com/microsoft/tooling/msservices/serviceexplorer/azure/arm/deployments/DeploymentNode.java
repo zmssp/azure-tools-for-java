@@ -23,15 +23,19 @@
 package com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments;
 
 import com.microsoft.azure.management.resources.Deployment;
+import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
+import com.microsoft.tooling.msservices.serviceexplorer.NodeActionEvent;
+import com.microsoft.tooling.msservices.serviceexplorer.NodeActionListener;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.ResourceManagementNode;
 
 public class DeploymentNode extends Node implements DeploymentNodeView {
 
-    private static final String ICON_PATH = "WebApp_16.png";
+    public static final String ICON_PATH = "WebApp_16.png";
     private static final String EXPORT_TEMPLATE_SUCCESS = "Export resource manager template saved";
     private static final String EXPORT_TEMPLATE_FAIL = "MS Services - Error Export resource manager template";
+    private static final String SHOW_PROPERTY_ACTION = "Show Properties";
     private final Deployment deployment;
     private final DeploymentNodePresenter deploymentNodePresenter;
     private final String subscriptionId;
@@ -56,6 +60,7 @@ public class DeploymentNode extends Node implements DeploymentNodeView {
 
     @Override
     protected void loadActions() {
+        addAction(SHOW_PROPERTY_ACTION, null, new ShowDeploymentPropertyAction());
         super.loadActions();
     }
 
@@ -69,5 +74,13 @@ public class DeploymentNode extends Node implements DeploymentNodeView {
 
     public String getSubscriptionId() {
         return subscriptionId;
+    }
+
+    // Show property action class
+    private class ShowDeploymentPropertyAction extends NodeActionListener {
+        @Override
+        protected void actionPerformed(NodeActionEvent e) throws AzureCmdException {
+            DefaultLoader.getUIHelper().openDeploymentPropertyView(DeploymentNode.this);
+        }
     }
 }
