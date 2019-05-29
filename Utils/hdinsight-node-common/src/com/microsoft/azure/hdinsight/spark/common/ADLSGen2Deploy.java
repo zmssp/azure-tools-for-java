@@ -26,32 +26,19 @@
  */
 package com.microsoft.azure.hdinsight.spark.common;
 
-import com.microsoft.azure.hdinsight.common.MessageInfoType;
 import com.microsoft.azure.hdinsight.common.logger.ILogger;
-import com.microsoft.azure.hdinsight.sdk.cluster.IClusterDetail;
 import com.microsoft.azure.hdinsight.sdk.common.HttpObservable;
-import com.microsoft.azure.hdinsight.sdk.common.SharedKeyHttpObservable;
-import com.microsoft.azure.hdinsight.sdk.storage.ADLSGen2StorageAccount;
-import com.microsoft.azure.hdinsight.sdk.storage.HDStorageAccount;
 import com.microsoft.azure.hdinsight.sdk.storage.adlsgen2.ADLSGen2FSOperation;
 import com.microsoft.azure.hdinsight.spark.jobs.JobUtils;
 import com.microsoft.azuretools.azurecommons.helpers.NotNull;
 import com.microsoft.azuretools.azurecommons.helpers.Nullable;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpStatus;
 import rx.Observable;
-import rx.Observer;
 import rx.exceptions.Exceptions;
 
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.AbstractMap;
-import java.util.AbstractMap.SimpleImmutableEntry;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static com.microsoft.azure.hdinsight.common.MessageInfoType.Info;
 
 public class ADLSGen2Deploy implements Deployable, ILogger {
     @NotNull
@@ -88,8 +75,9 @@ public class ADLSGen2Deploy implements Deployable, ILogger {
         ADLSGen2FSOperation op = new ADLSGen2FSOperation(this.http);
         return op.createDir(dirPath)
                 .onErrorReturn(err -> {
-                    if (err.getMessage().contains(String.valueOf(HttpStatus.SC_FORBIDDEN))) {
-                        throw new IllegalArgumentException("Failed to upload Spark application artifacts.The access key is invalid.");
+                    if (err.getMessage().contains(String.valueOf(HttpStatus.SC_FORBIDDEN))
+                            || err.getMessage().contains(String.valueOf(HttpStatus.SC_NOT_FOUND))) {
+                        throw new IllegalArgumentException("Failed to upload Spark application artifacts. ADLS Gen2 root path does not match with access key.");
                     } else {
                         throw Exceptions.propagate(err);
                     }
