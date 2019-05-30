@@ -28,6 +28,7 @@ import java.net.URL;
 import java.text.DecimalFormat;
 import java.util.Map;
 
+import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentNode;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
@@ -138,6 +139,11 @@ public class UIHelperImpl implements UIHelper {
         } else {
             return new File(fileName);
         }
+    }
+
+    @Override
+    public File showFileSaver(String s, String s1) {
+        return null;
     }
 
     @Override
@@ -294,6 +300,16 @@ public class UIHelperImpl implements UIHelper {
     }
 
     @Override
+    public void openDeploymentPropertyView(DeploymentNode deploymentNode) {
+
+    }
+
+    @Override
+    public void openResourceTemplateView(DeploymentNode deploymentNode, String s) {
+
+    }
+
+    @Override
     public void openContainerRegistryPropertyView(@NotNull ContainerRegistryNode node) {
         String sid = node.getSubscriptionId();
         String resId = node.getResourceId();
@@ -398,6 +414,11 @@ public class UIHelperImpl implements UIHelper {
     public void showInfo(Node node, String message) {
         // TODO Auto-generated method stub
         
+    }
+
+    @Override
+    public void showError(Node node, String s) {
+
     }
 
 }
