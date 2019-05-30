@@ -21,7 +21,7 @@
               <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
             </constraints>
             <properties>
-              <text value="Deployment Name"/>
+              <text value="Deployment Name:"/>
             </properties>
           </component>
           <component id="7bc9d" class="javax.swing.JTextField" binding="deploymentNameTextField">
@@ -38,7 +38,7 @@
             </constraints>
             <properties>
               <requestFocusEnabled value="true"/>
-              <text value="Subscription"/>
+              <text value="Subscription:"/>
             </properties>
           </component>
           <component id="183d5" class="javax.swing.JComboBox" binding="subscriptionCb">
@@ -52,7 +52,7 @@
               <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
             </constraints>
             <properties>
-              <text value="Resource Group"/>
+              <text value="Resource Group:"/>
             </properties>
           </component>
           <component id="40ee6" class="javax.swing.JRadioButton" binding="useExistingRgButton">
@@ -88,7 +88,7 @@
               <grid row="7" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
             </constraints>
             <properties>
-              <text value="Resource Template"/>
+              <text value="Resource Template:"/>
             </properties>
           </component>
           <component id="78c76" class="javax.swing.JTextField" binding="rgNameTextFiled">
@@ -112,7 +112,7 @@
               <grid row="5" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
             </constraints>
             <properties>
-              <text value="Region"/>
+              <text value="Region:"/>
             </properties>
           </component>
           <component id="5e987" class="javax.swing.JLabel" binding="createNewRgRegionLabel">
@@ -120,7 +120,7 @@
               <grid row="6" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
             </constraints>
             <properties>
-              <text value="Region"/>
+              <text value="Region:"/>
             </properties>
           </component>
           <component id="8595e" class="javax.swing.JComboBox" binding="regionCb">
@@ -137,7 +137,7 @@
             </constraints>
             <properties/>
           </component>
-          <component id="7d8bf" class="javax.swing.JLabel" binding="lblTemplateHover" custom-create="true">
+          <component id="7d8bf" class="com.intellij.ui.HyperlinkLabel" binding="lblTemplateHover">
             <constraints>
               <grid row="7" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
             </constraints>

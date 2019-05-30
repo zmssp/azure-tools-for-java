@@ -11,7 +11,6 @@ import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentPropertyMvpView;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentPropertyViewPresenter;
-import java.io.File;
 import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -92,7 +91,12 @@ public class DeploymentPropertyView extends BaseEditor implements DeploymentProp
         PagedList<DeploymentOperation> deploymentOperations = deployment.deploymentOperations().list();
         for (DeploymentOperation deploymentOperation : deploymentOperations) {
             if (deploymentOperation.statusMessage() != null && deploymentOperation.statusMessage() instanceof Map) {
-                sb.append(((Map<String, String>)deploymentOperation.statusMessage()).get("Message"));
+                String errMsg = ((Map<String, String>)deploymentOperation.statusMessage()).get("Message");
+                if (errMsg != null) {
+                    sb.append(errMsg);
+                } else {
+                    sb.append(deploymentOperation.statusMessage().toString());
+                }
             }
         }
         statusReasonLabel.setLineWrap(true);

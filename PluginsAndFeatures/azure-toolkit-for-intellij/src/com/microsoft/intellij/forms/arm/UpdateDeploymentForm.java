@@ -3,8 +3,6 @@ package com.microsoft.intellij.forms.arm;
 import static com.microsoft.intellij.serviceexplorer.azure.arm.UpdateDeploymentAction.NOTIFY_UPDATE_DEPLOYMENT_FAIL;
 import static com.microsoft.intellij.serviceexplorer.azure.arm.UpdateDeploymentAction.NOTIFY_UPDATE_DEPLOYMENT_SUCCESS;
 
-import com.intellij.icons.AllIcons;
-import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
@@ -20,18 +18,12 @@ import com.microsoft.azure.management.resources.DeploymentMode;
 import com.microsoft.azure.management.resources.Subscription;
 import com.microsoft.azuretools.utils.AzureModel;
 import com.microsoft.intellij.ui.util.UIUtils;
-import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentNode;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.FileReader;
 import java.util.Map;
-import javax.swing.ButtonGroup;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JRadioButton;
-import javax.swing.JTextField;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -42,7 +34,7 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
     private JLabel subsNameLabel;
     private JLabel rgNameLabel;
     private JLabel deploymentNameLabel;
-    private JLabel lblTemplateHover;
+    private HyperlinkLabel lblTemplateHover;
     private Project project;
     private final DeploymentNode deploymentNode;
     private TextFieldWithBrowseButton templateTextField;
@@ -55,6 +47,8 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
         this.project = project;
         statusBar = WindowManager.getInstance().getStatusBar(project);
         this.deploymentNode = deploymentNode;
+        lblTemplateHover.setHyperlinkText("Browse for samples");
+        lblTemplateHover.setHyperlinkTarget(ARM_DOC);
         initTemplateComponent();
         fill();
         init();
@@ -104,16 +98,6 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
         templateTextField.addActionListener(
                 UIUtils.createFileChooserListener(templateTextField, project,
                         FileChooserDescriptorFactory.createSingleLocalFileDescriptor()));
-    }
-
-    private void createUIComponents() {
-        lblTemplateHover = new JLabel(AllIcons.General.Information);
-        lblTemplateHover.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                BrowserUtil.browse(ARM_DOC);
-            }
-        });
     }
 
 }

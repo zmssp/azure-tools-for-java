@@ -6,7 +6,7 @@ import com.microsoft.tooling.msservices.serviceexplorer.NodeActionEvent;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionListener;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentNode;
 
-@Name("Export Resource Template")
+@Name("Export Template File")
 public class ExportTemplateAction extends NodeActionListener {
 
     private final DeploymentNode deploymentNode;

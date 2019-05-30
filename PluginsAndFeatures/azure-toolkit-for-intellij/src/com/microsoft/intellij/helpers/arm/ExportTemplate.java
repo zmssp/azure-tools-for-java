@@ -19,7 +19,7 @@ public class ExportTemplate {
     }
 
     public void doExport() {
-        File file = DefaultLoader.getUIHelper().showFileChooser(FILE_SELECTOR_TITLE);
+        File file = DefaultLoader.getUIHelper().showFileSaver(FILE_SELECTOR_TITLE, deploymentNode.getName() + ".json");
         if (file != null) {
             deploymentNode.getDeployment().exportTemplateAsync().subscribeOn(Schedulers.io()).subscribe(
                     res -> DefaultLoader.getIdeHelper()

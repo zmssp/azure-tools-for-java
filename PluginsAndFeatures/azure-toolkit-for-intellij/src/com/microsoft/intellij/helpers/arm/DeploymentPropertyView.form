@@ -62,7 +62,7 @@
                 </constraints>
                 <properties>
                   <font style="1"/>
-                  <text value="Deploynment Name"/>
+                  <text value="Deploynment Name:"/>
                 </properties>
               </component>
               <component id="a24b4" class="javax.swing.JLabel" binding="deploymenNameLabel">
@@ -79,7 +79,7 @@
                 </constraints>
                 <properties>
                   <font style="1"/>
-                  <text value="Last Modified"/>
+                  <text value="Last Modified:"/>
                 </properties>
               </component>
               <component id="92e24" class="javax.swing.JLabel" binding="lastModifiedLabel">
@@ -104,7 +104,7 @@
                 </constraints>
                 <properties>
                   <font style="1"/>
-                  <text value="Status"/>
+                  <text value="Status:"/>
                 </properties>
               </component>
               <component id="b10b4" class="javax.swing.JLabel">
@@ -113,7 +113,7 @@
                 </constraints>
                 <properties>
                   <font style="1"/>
-                  <text value="DeploymentMode"/>
+                  <text value="DeploymentMode:"/>
                 </properties>
               </component>
               <component id="b8c3f" class="javax.swing.JLabel" binding="deploymentModeLabel">
@@ -138,7 +138,7 @@
                 </constraints>
                 <properties>
                   <font style="1"/>
-                  <text value="Status Reason"/>
+                  <text value="Status Reason:"/>
                 </properties>
               </component>
             </children>

@@ -122,8 +122,6 @@
     <fileTypeFactory implementation="com.microsoft.intellij.language.arm.file.ARMFileTypeFactory"/>
     <lang.syntaxHighlighterFactory key="arm"
       implementationClass="com.microsoft.intellij.language.arm.editor.ARMSyntaxHighlightFactory"/>
-<!--    <langCodeStyleSettingsProvider-->
-<!--      implementation="com.microsoft.intellij.language.arm.editor.ARMLanguageCodeStyleSettingsProvider"/>-->
     <lang.parserDefinition language="arm"
       implementationClass="com.microsoft.intellij.language.arm.parser.ARMParserDefinition"/>
     <completion.contributor language="JSON" order="first"

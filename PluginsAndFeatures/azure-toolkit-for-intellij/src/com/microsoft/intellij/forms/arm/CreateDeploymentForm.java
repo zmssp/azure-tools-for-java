@@ -4,8 +4,6 @@ package com.microsoft.intellij.forms.arm;
 import static com.microsoft.intellij.serviceexplorer.azure.arm.CreateDeploymentAction.NOTIFY_CREATE_DEPLOYMENT_FAIL;
 import static com.microsoft.intellij.serviceexplorer.azure.arm.CreateDeploymentAction.NOTIFY_CREATE_DEPLOYMENT_SUCCESS;
 
-import com.intellij.icons.AllIcons;
-import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
@@ -30,10 +28,7 @@ import com.microsoft.azuretools.utils.*;
 import com.microsoft.intellij.AzurePlugin;
 import com.microsoft.intellij.ui.util.UIUtils;
 import com.microsoft.intellij.ui.util.UIUtils.ElementWrapper;
-import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.ResourceManagementModule;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.ResourceManagementNode;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.io.FileReader;
 import java.util.Comparator;
 import java.util.List;
@@ -64,7 +59,7 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
     private JLabel createNewRgRegionLabel;
     private JComboBox subscriptionCb;
     private TextFieldWithBrowseButton templateTextField;
-    private JLabel lblTemplateHover;
+    private HyperlinkLabel lblTemplateHover;
     private Project project;
     private StatusBar statusBar;
     private String rgName;
@@ -94,6 +89,9 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
             fillResourceGroup();
             fillRegion();
         });
+
+        lblTemplateHover.setHyperlinkText("Browse for samples");
+        lblTemplateHover.setHyperlinkTarget(ARM_DOC);
 
         initTemplateComponent();
         radioRgLogic();
@@ -253,15 +251,5 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
                 break;
             }
         }
-    }
-
-    private void createUIComponents() {
-        lblTemplateHover = new JLabel(AllIcons.General.Information);
-        lblTemplateHover.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                BrowserUtil.browse(ARM_DOC);
-            }
-        });
     }
 }
