@@ -28,14 +28,18 @@ import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionEvent;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionListener;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureNodeActionPromptListener;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.ResourceManagementNode;
-
 public class DeploymentNode extends Node implements DeploymentNodeView {
 
     public static final String ICON_PATH = "WebApp_16.png";
     private static final String EXPORT_TEMPLATE_SUCCESS = "Export resource manager template saved";
     private static final String EXPORT_TEMPLATE_FAIL = "MS Services - Error Export resource manager template";
     private static final String SHOW_PROPERTY_ACTION = "Show Properties";
+    private static final String DELETE_ACTION = "Delete";
+    private static final String DELETE_DEPLOYMENT_PROMPT_MESSAGE = "This operation will delete the Deployment "
+        + "%s. Are you sure you want to continue?";
+    private static final String DELETE_DEPLOYMENT_PROGRESS_MESSAGE = "Deleting Deployment";
     private final Deployment deployment;
     private final DeploymentNodePresenter deploymentNodePresenter;
     private final String subscriptionId;
@@ -61,6 +65,7 @@ public class DeploymentNode extends Node implements DeploymentNodeView {
     @Override
     protected void loadActions() {
         addAction(SHOW_PROPERTY_ACTION, null, new ShowDeploymentPropertyAction());
+        addAction(DELETE_ACTION, null, new DeleteDeploymentAction());
         super.loadActions();
     }
 
@@ -78,9 +83,27 @@ public class DeploymentNode extends Node implements DeploymentNodeView {
 
     // Show property action class
     private class ShowDeploymentPropertyAction extends NodeActionListener {
+
         @Override
         protected void actionPerformed(NodeActionEvent e) throws AzureCmdException {
             DefaultLoader.getUIHelper().openDeploymentPropertyView(DeploymentNode.this);
+        }
+    }
+
+    private class DeleteDeploymentAction extends AzureNodeActionPromptListener {
+
+        DeleteDeploymentAction() {
+            super(DeploymentNode.this, String.format(DELETE_DEPLOYMENT_PROMPT_MESSAGE, deployment.name()),
+                DELETE_DEPLOYMENT_PROGRESS_MESSAGE);
+        }
+
+        @Override
+        protected void azureNodeAction(NodeActionEvent e) {
+            getParent().removeNode(subscriptionId, deployment.id(), DeploymentNode.this);
+        }
+
+        @Override
+        protected void onSubscriptionsChanged(NodeActionEvent e) {
         }
     }
 }

@@ -65,6 +65,7 @@ import com.microsoft.tooling.msservices.model.storage.ClientStorageAccount;
 import com.microsoft.tooling.msservices.model.storage.Queue;
 import com.microsoft.tooling.msservices.model.storage.StorageServiceTreeItem;
 import com.microsoft.tooling.msservices.model.storage.Table;
+import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.container.ContainerRegistryNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.rediscache.RedisCacheNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.webapp.WebAppNode;
@@ -392,4 +393,11 @@ public class UIHelperImpl implements UIHelper {
         IEditorDescriptor descriptor = workbench.getEditorRegistry().findEditor(DeploymentSlotEditor.ID);
         openEditor(EditorType.WEBAPP_EXPLORER, input, descriptor);
     }
+
+    @Override
+    public void showInfo(Node node, String message) {
+        // TODO Auto-generated method stub
+        
+    }
+
 }

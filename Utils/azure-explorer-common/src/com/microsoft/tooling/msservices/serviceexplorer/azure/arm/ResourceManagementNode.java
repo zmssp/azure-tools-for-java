@@ -26,6 +26,11 @@ import com.microsoft.azure.management.resources.Deployment;
 import com.microsoft.azure.management.resources.ResourceGroup;
 import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
 import com.microsoft.azuretools.core.mvp.model.ResourceEx;
+import com.microsoft.azuretools.utils.AzureUIRefreshCore;
+import com.microsoft.azuretools.utils.AzureUIRefreshEvent;
+import com.microsoft.azuretools.utils.AzureUIRefreshListener;
+import com.microsoft.tooling.msservices.components.DefaultLoader;
+import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionEvent;
 import com.microsoft.tooling.msservices.serviceexplorer.RefreshableNode;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureNodeActionPromptListener;
@@ -42,19 +47,22 @@ public class ResourceManagementNode extends RefreshableNode implements ResourceM
     private static final String DELETE_RESOURCE_GROUP_PROGRESS_MESSAGE = "Deleting Resource Group";
     private final ResourceManagementNodePresenter rmNodePresenter;
     private final String sid;
+    private final String rgName;
+    private final Object listenerObj = new Object();
 
     public ResourceManagementNode(ResourceManagementModule parent, String subscriptionId, ResourceGroup resourceGroup) {
         super(resourceGroup.id(), resourceGroup.name(), parent, ICON_RESOURCE_MANAGEMENT, true);
         rmNodePresenter = new ResourceManagementNodePresenter();
         rmNodePresenter.onAttachView(this);
         sid = subscriptionId;
+        rgName = resourceGroup.name();
         loadActions();
     }
 
     @Override
     protected void refreshItems() throws AzureCmdException {
         try {
-            rmNodePresenter.onModuleRefresh(sid, name);
+            rmNodePresenter.onModuleRefresh(sid, rgName);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -75,15 +83,35 @@ public class ResourceManagementNode extends RefreshableNode implements ResourceM
         }
     }
 
+    @Override
+    public void removeNode(String sid, String id, Node node) {
+        try {
+            rmNodePresenter.onDeleteDeployment(sid, id);
+            removeDirectChildNode(node);
+        } catch (Exception e) {
+            DefaultLoader.getUIHelper()
+                .showException("An error occurred while attempting to delete the resource group ",
+                    e, "Azure Services Explorer - Error Deleting Resource Group", false, true);
+        }
+    }
+
+    public String getSid() {
+        return sid;
+    }
+
+    public String getRgName() {
+        return rgName;
+    }
+
     private class DeleteResourceGroupAction extends AzureNodeActionPromptListener {
         DeleteResourceGroupAction() {
-            super(ResourceManagementNode.this, String.format(DELETE_RESOURCE_GROUP_PROMPT_MESSAGE, name),
+            super(ResourceManagementNode.this, String.format(DELETE_RESOURCE_GROUP_PROMPT_MESSAGE, rgName),
                 DELETE_RESOURCE_GROUP_PROGRESS_MESSAGE);
         }
 
         @Override
         protected void azureNodeAction(NodeActionEvent e) {
-            getParent().removeNode(sid, name, ResourceManagementNode.this);
+            getParent().removeNode(sid, rgName, ResourceManagementNode.this);
         }
 
         @Override

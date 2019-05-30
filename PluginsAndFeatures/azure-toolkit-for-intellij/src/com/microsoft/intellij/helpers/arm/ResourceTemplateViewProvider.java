@@ -7,9 +7,9 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
 
-public class DeploymentPropertyViewProvider implements FileEditorProvider {
+public class ResourceTemplateViewProvider implements FileEditorProvider {
 
-    public static final String TYPE = "DEPLOYMENT_PROPERTY_VIEW";
+    public static final String TYPE = "RESOURCE_TEMPLATE_VIEW";
 
     @Override
     public boolean accept(@NotNull Project project, @NotNull VirtualFile virtualFile) {
@@ -19,7 +19,7 @@ public class DeploymentPropertyViewProvider implements FileEditorProvider {
     @NotNull
     @Override
     public FileEditor createEditor(@NotNull Project project, @NotNull VirtualFile virtualFile) {
-        return new DeploymentPropertyView();
+        return new ResourceTemplateView();
     }
 
     @NotNull

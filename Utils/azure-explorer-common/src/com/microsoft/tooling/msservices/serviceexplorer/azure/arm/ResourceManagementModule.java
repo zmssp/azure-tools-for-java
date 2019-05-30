@@ -23,11 +23,19 @@
 package com.microsoft.tooling.msservices.serviceexplorer.azure.arm;
 
 import com.microsoft.azure.management.resources.ResourceGroup;
+import com.microsoft.azure.management.resources.fluentcore.arm.ResourceId;
 import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
 import com.microsoft.azuretools.core.mvp.model.ResourceEx;
+import com.microsoft.azuretools.utils.*;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
+import com.microsoft.tooling.msservices.helpers.collections.ObservableList;
 import com.microsoft.tooling.msservices.serviceexplorer.AzureRefreshableNode;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentNode;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.webapp.WebAppModule;
+import com.microsoft.tooling.msservices.serviceexplorer.azure.webapp.WebAppNode;
+
+import javax.swing.tree.TreePath;
 import java.util.List;
 
 public class ResourceManagementModule extends AzureRefreshableNode implements ResourceManagementModuleView {
@@ -36,11 +44,13 @@ public class ResourceManagementModule extends AzureRefreshableNode implements Re
     private static final String ICON_PATH = "WebApp_16.png";
     private static final String BASE_MODULE_NAME = "Resource Management";
     private final ResourceManagementModulePresenter rmModulePresenter;
+    public static final Object listenerObj = new Object();
 
     public ResourceManagementModule(Node parent) {
         super(RESOURCE_MANAGEMENT_MODULE_ID, BASE_MODULE_NAME, parent, ICON_PATH);
         rmModulePresenter = new ResourceManagementModulePresenter();
         rmModulePresenter.onAttachView(ResourceManagementModule.this);
+        createListener();
     }
 
     @Override
@@ -49,8 +59,8 @@ public class ResourceManagementModule extends AzureRefreshableNode implements Re
             rmModulePresenter.onModuleRefresh();
         } catch (Exception e) {
             DefaultLoader.getUIHelper()
-                .showException("An error occurred while attempting to refresh the resource manage module ",
-                    e, "Azure Services Explorer - Error Refresh resource manage module", false, true);
+                    .showException("An error occurred while attempting to refresh the resource manage module ",
+                            e, "Azure Services Explorer - Error Refresh resource manage module", false, true);
         }
 
     }
@@ -58,12 +68,12 @@ public class ResourceManagementModule extends AzureRefreshableNode implements Re
     @Override
     public void removeNode(String sid, String id, Node node) {
         try {
-            rmModulePresenter.onDeleteResourceGroup(sid, node.getName());
+            rmModulePresenter.onDeleteResourceGroup(sid, id);
             removeDirectChildNode(node);
         } catch (Exception e) {
             DefaultLoader.getUIHelper()
-                .showException("An error occurred while attempting to delete the resource group ",
-                    e, "Azure Services Explorer - Error Deleting Resource Group", false, true);
+                    .showException("An error occurred while attempting to delete the resource group ",
+                            e, "Azure Services Explorer - Error Deleting Resource Group", false, true);
         }
     }
 
@@ -74,5 +84,54 @@ public class ResourceManagementModule extends AzureRefreshableNode implements Re
             final ResourceManagementNode node = new ResourceManagementNode(this, resourceEx.getSubscriptionId(), rg);
             addChildNode(node);
         }
+    }
+
+    private void createListener() {
+        String id = "ResourceManagementModule";
+        AzureUIRefreshListener listener = new AzureUIRefreshListener() {
+            @Override
+            public void run() {
+                if (event.opsType == AzureUIRefreshEvent.EventType.SIGNIN || event.opsType == AzureUIRefreshEvent
+                        .EventType.SIGNOUT) {
+                    removeAllChildNodes();
+                } else if (event.object == listenerObj && (event.opsType == AzureUIRefreshEvent.EventType.UPDATE || event
+                        .opsType == AzureUIRefreshEvent.EventType.REMOVE)) {
+                    if (hasChildNodes()) {
+                        load(true);
+                    }
+                } else if (event.object == listenerObj && event.opsType == AzureUIRefreshEvent.EventType.REFRESH) {
+                    load(true);
+                } else if (event.object instanceof String && event.opsType == AzureUIRefreshEvent.EventType.REFRESH) {
+                    String rgName = (String) event.object;
+                    ResourceManagementNode rgNode = findRgNode(rgName);
+                    if (rgNode != null) {
+                        rgNode.load(true);
+                    }
+                }
+            }
+        };
+        AzureUIRefreshCore.addListener(id, listener);
+    }
+
+    private ResourceManagementNode findRgNode(String rgName) {
+        try {
+            ResourceManagementNode rgNode = findRgNodeLocal(rgName);
+            if (rgNode != null) {
+                return rgNode;
+            }
+            load(true).get();
+            return findRgNodeLocal(rgName);
+        } catch (Exception ignore) {
+            return null;
+        }
+    }
+
+    private ResourceManagementNode findRgNodeLocal(String rgName) {
+        for (Node rgNode : getChildNodes()) {
+            if (((ResourceManagementNode) rgNode).getRgName().equals(rgName)) {
+                return (ResourceManagementNode) rgNode;
+            }
+        }
+        return null;
     }
 }

@@ -1,5 +1,8 @@
 package com.microsoft.intellij.forms.arm;
 
+import static com.microsoft.intellij.serviceexplorer.azure.arm.UpdateDeploymentAction.NOTIFY_UPDATE_DEPLOYMENT_FAIL;
+import static com.microsoft.intellij.serviceexplorer.azure.arm.UpdateDeploymentAction.NOTIFY_UPDATE_DEPLOYMENT_SUCCESS;
+
 import com.intellij.icons.AllIcons;
 import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
@@ -8,7 +11,10 @@ import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
+import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
+import com.intellij.openapi.wm.StatusBar;
+import com.intellij.openapi.wm.WindowManager;
 import com.intellij.ui.HyperlinkLabel;
 import com.microsoft.azure.management.resources.DeploymentMode;
 import com.microsoft.azure.management.resources.Subscription;
@@ -39,17 +45,15 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
     private JLabel lblTemplateHover;
     private Project project;
     private final DeploymentNode deploymentNode;
-    private JRadioButton templateFileRadioButton;
-    private JRadioButton templateURLRadioButton;
-    private JTextField templateURLTextField;
     private TextFieldWithBrowseButton templateTextField;
-    private HyperlinkLabel templateURLLabel;
+    private StatusBar statusBar;
 
     public UpdateDeploymentForm(Project project, DeploymentNode deploymentNode) {
         super(project, false);
         setModal(true);
-        setTitle("Update Resource Template");
+        setTitle("Update Deployment");
         this.project = project;
+        statusBar = WindowManager.getInstance().getStatusBar(project);
         this.deploymentNode = deploymentNode;
         initTemplateComponent();
         fill();
@@ -64,22 +68,17 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
                 try {
-                    if (templateFileRadioButton.isSelected()) {
-                        String fileText = templateTextField.getText();
-                        String content = IOUtils.toString(new FileReader(fileText));
-                        deploymentNode.getDeployment().update().
+                    String fileText = templateTextField.getText();
+                    String content = IOUtils.toString(new FileReader(fileText));
+                    deploymentNode.getDeployment().update().
                             withTemplate(content)
                             .withParameters("{}")
                             .withMode(DeploymentMode.INCREMENTAL).apply();
-                    } else {
-                        deploymentNode.getDeployment().update().
-                            withTemplateLink(templateURLTextField.getText(), "1.0.0.0")
-                            .withParameters("{}")
-                            .withMode(DeploymentMode.INCREMENTAL).apply();
-                    }
+
+                    UIUtils.showNotification(statusBar, NOTIFY_UPDATE_DEPLOYMENT_SUCCESS, MessageType.INFO);
                 } catch (Exception e) {
-                    DefaultLoader.getIdeHelper().invokeAndWait(() -> DefaultLoader.getUIHelper().
-                        showException("Deploy Azure resource Failed", e, "Deploy Azure resource Failed", false, true));
+                    UIUtils.showNotification(statusBar, NOTIFY_UPDATE_DEPLOYMENT_FAIL + ", " + e.getMessage(),
+                        MessageType.ERROR);
                 }
             }
         });
@@ -102,33 +101,9 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
     }
 
     protected void initTemplateComponent() {
-        final ButtonGroup templateGroup = new ButtonGroup();
-        templateGroup.add(templateFileRadioButton);
-        templateGroup.add(templateURLRadioButton);
-        templateFileRadioButton.setSelected(true);
-        templateFileRadioButton.addItemListener((e) -> radioTemplateLogic());
-        templateURLRadioButton.addItemListener((e) -> radioTemplateLogic());
-
         templateTextField.addActionListener(
-            UIUtils.createFileChooserListener(templateTextField, project,
-                FileChooserDescriptorFactory.createSingleLocalFileDescriptor()));
-        templateURLLabel.setHyperlinkText("Browse for samples");
-        templateURLLabel.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                BrowserUtil.browse(TEMPLATE_URL);
-            }
-        });
-
-        radioTemplateLogic();
-    }
-
-    private void radioTemplateLogic() {
-        boolean isFile = templateFileRadioButton.isSelected();
-        templateTextField.setVisible(isFile);
-        templateURLTextField.setVisible(!isFile);
-        templateURLLabel.setVisible(!isFile);
-        pack();
+                UIUtils.createFileChooserListener(templateTextField, project,
+                        FileChooserDescriptorFactory.createSingleLocalFileDescriptor()));
     }
 
     private void createUIComponents() {

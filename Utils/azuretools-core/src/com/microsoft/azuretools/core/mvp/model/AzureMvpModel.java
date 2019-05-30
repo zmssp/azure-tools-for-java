@@ -131,6 +131,18 @@ public class AzureMvpModel {
     }
 
     /**
+     *
+     * @param rgName resource group name
+     * @param sid subscription id
+     * @return
+     */
+    public void deleteResourceGroup(String rgName, String sid) throws IOException {
+        AzureManager azureManager = AuthMethodManager.getInstance().getAzureManager();
+        Azure azure = azureManager.getAzure(sid);
+        azure.resourceGroups().deleteByName(rgName);
+    }
+
+    /**
      * List Resource Group by Subscription ID.
      *
      * @param sid subscription Id

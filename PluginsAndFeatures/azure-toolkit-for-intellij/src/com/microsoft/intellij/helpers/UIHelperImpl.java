@@ -53,7 +53,8 @@ import com.microsoft.intellij.AzurePlugin;
 import com.microsoft.intellij.forms.ErrorMessageForm;
 import com.microsoft.intellij.forms.OpenSSLFinderForm;
 import com.microsoft.intellij.helpers.arm.DeploymentPropertyView;
-import com.microsoft.intellij.helpers.arm.DeploymentPropertyViewProvider;
+import com.microsoft.intellij.helpers.arm.ResourceTemplateView;
+import com.microsoft.intellij.helpers.arm.ResourceTemplateViewProvider;
 import com.microsoft.intellij.helpers.containerregistry.ContainerRegistryPropertyView;
 import com.microsoft.intellij.helpers.containerregistry.ContainerRegistryPropertyViewProvider;
 import com.microsoft.intellij.helpers.rediscache.RedisCacheExplorerProvider;
@@ -144,8 +145,17 @@ public class UIHelperImpl implements UIHelper {
 
     @Override
     public void showInfo(Node node, String s) {
+        showNotification(node, s, MessageType.INFO);
+    }
+
+    @Override
+    public void showError(Node node, String s) {
+        showNotification(node, s, MessageType.ERROR);
+    }
+
+    private void showNotification(Node node, String s, MessageType type) {
         StatusBar statusBar = WindowManager.getInstance().getStatusBar((Project) node.getProject());
-        UIUtils.showNotification(statusBar, s, MessageType.INFO);
+        UIUtils.showNotification(statusBar, s, type);
     }
 
     @Override
@@ -159,9 +169,14 @@ public class UIHelperImpl implements UIHelper {
      */
     @Override
     public File showFileChooser(String title) {
+        return showFileSaver(title, "");
+    }
+
+    @Override
+    public File showFileSaver(String title, String fileName) {
         FileSaverDescriptor fileDescriptor = new FileSaverDescriptor(title, "");
         final FileSaverDialog dialog = FileChooserFactory.getInstance().createSaveFileDialog(fileDescriptor, (Project) null);
-        final VirtualFileWrapper save = dialog.save(LocalFileSystem.getInstance().findFileByPath(System.getProperty("user.home")), "");
+        final VirtualFileWrapper save = dialog.save(LocalFileSystem.getInstance().findFileByPath(System.getProperty("user.home")), fileName);
 
         if (save != null) {
             return save.getFile();
@@ -389,10 +404,33 @@ public class UIHelperImpl implements UIHelper {
         FileEditor[] fileEditors = fileEditorManager.openFile(itemVirtualFile, true, true);
         for (FileEditor fileEditor : fileEditors) {
             if (fileEditor.getName().equals(DeploymentPropertyView.ID) && fileEditor instanceof DeploymentPropertyView) {
-                ((DeploymentPropertyView) fileEditor).onLoadProperty(node.getDeployment());
+                ((DeploymentPropertyView) fileEditor).onLoadProperty(node);
             }
         }
     }
+
+    @Override
+    public void openResourceTemplateView(DeploymentNode node, String template) {
+        Project project = (Project) node.getProject();
+        FileEditorManager fileEditorManager = FileEditorManager.getInstance(project);
+        if (fileEditorManager == null) {
+            showError(CANNOT_GET_FILE_EDITOR_MANAGER, UNABLE_TO_OPEN_EDITOR_WINDOW);
+            return;
+        }
+        LightVirtualFile itemVirtualFile = searchExistingFile(fileEditorManager, ResourceTemplateViewProvider.TYPE,
+            node.getId());
+        if (itemVirtualFile == null) {
+            itemVirtualFile = createVirtualFile(node.getName(), ResourceTemplateViewProvider.TYPE,
+                DeploymentNode.ICON_PATH, node.getSubscriptionId(), node.getId());
+        }
+        FileEditor[] fileEditors = fileEditorManager.openFile(itemVirtualFile, true, true);
+        for (FileEditor fileEditor : fileEditors) {
+            if (fileEditor.getName().equals(ResourceTemplateView.ID) && fileEditor instanceof ResourceTemplateView) {
+                ((ResourceTemplateView) fileEditor).loadTemplate(node, template);
+            }
+        }
+    }
+
 
     @Override
     public void openInBrowser(String link) {

@@ -47,7 +47,7 @@ public class ResourceManagementModulePresenter<V extends ResourceManagementModul
             final List<ResourceEx<ResourceGroup>> rgs = new ArrayList<>();
             final List<Deployment> deployments = new ArrayList<>();
 
-            Observable.range(0, 2).flatMap((val) ->
+            Observable.range(0, 1).flatMap((val) ->
                 Observable.create((subscriber) -> {
                     try {
                         if (val == 0) {
@@ -71,7 +71,7 @@ public class ResourceManagementModulePresenter<V extends ResourceManagementModul
                     rgsContainsDeployment.add(rg);
                 }
             }
-            view.renderChildren(rgsContainsDeployment);
+            view.renderChildren(rgs);
         }
     }
 

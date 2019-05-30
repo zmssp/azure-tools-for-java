@@ -47,9 +47,13 @@ public interface UIHelper {
 
     void showInfo(@NotNull Node node, @NotNull String message);
 
+    void showError(@NotNull Node node, @NotNull String message);
+
     void logError(String message, Throwable ex);
 
     File showFileChooser(String title);
+
+    File showFileSaver(String title, String fileName);
 
     <T extends StorageServiceTreeItem> void openItem(Object projectObject, final StorageAccount storageAccount, final T item, String itemType, String itemName, String iconName);
 
@@ -70,6 +74,8 @@ public interface UIHelper {
     void openRedisExplorer(@NotNull RedisCacheNode node);
 
     void openDeploymentPropertyView(@NotNull DeploymentNode node);
+
+    void openResourceTemplateView(@NotNull DeploymentNode node, String template);
 
     void openInBrowser(String link);
 

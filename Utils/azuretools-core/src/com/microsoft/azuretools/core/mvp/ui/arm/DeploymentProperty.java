@@ -6,16 +6,18 @@ import java.util.List;
 public class DeploymentProperty {
 
     private Deployment deployment;
+    private String templateJson;
     private List<String> parameters;
     private List<String> variables;
     private List<String> resources;
 
     public DeploymentProperty(Deployment deployment, List<String> parameters,
-        List<String> variables, List<String> resources) {
+        List<String> variables, List<String> resources, String templateJson) {
         this.deployment = deployment;
         this.parameters = parameters;
         this.variables = variables;
         this.resources = resources;
+        this.templateJson = templateJson;
     }
 
     public Deployment getDeployment() {
@@ -30,7 +32,13 @@ public class DeploymentProperty {
         return variables;
     }
 
+    public String getTemplateJson() {
+        return templateJson;
+    }
+
     public List<String> getResources() {
         return resources;
     }
+
+
 }

@@ -1,133 +1,171 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <form xmlns="http://www.intellij.com/uidesigner/form/" version="1" bind-to-class="com.microsoft.intellij.helpers.arm.DeploymentPropertyView">
-  <grid id="cbd77" binding="contentPane" layout-manager="GridLayoutManager" row-count="5" column-count="5" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+  <grid id="cbd77" binding="contentPane" layout-manager="GridLayoutManager" row-count="4" column-count="1" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
     <margin top="10" left="10" bottom="10" right="10"/>
     <constraints>
-      <xy x="48" y="54" width="688" height="670"/>
+      <xy x="48" y="54" width="828" height="670"/>
     </constraints>
     <properties>
       <enabled value="false"/>
     </properties>
     <border type="none"/>
     <children>
-      <component id="a6c3f" class="javax.swing.JLabel">
+      <grid id="aebc1" layout-manager="GridLayoutManager" row-count="1" column-count="3" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+        <margin top="0" left="0" bottom="0" right="0"/>
         <constraints>
-          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+          <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
         </constraints>
-        <properties>
-          <text value="Deploynment Name"/>
-        </properties>
-      </component>
-      <component id="2da85" class="javax.swing.JLabel" binding="deploymenNameLabel">
+        <properties/>
+        <border type="none"/>
+        <children>
+          <component id="da697" class="javax.swing.JButton" binding="viewResourceTemplateButton">
+            <constraints>
+              <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+            </constraints>
+            <properties>
+              <text value="View Template File"/>
+            </properties>
+          </component>
+          <hspacer id="20762">
+            <constraints>
+              <grid row="0" column="2" row-span="1" col-span="1" vsize-policy="1" hsize-policy="6" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+            </constraints>
+          </hspacer>
+          <component id="59ce0" class="javax.swing.JButton" binding="exportTemplateFileButton" default-binding="true">
+            <constraints>
+              <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+            </constraints>
+            <properties>
+              <text value="Export Template File"/>
+            </properties>
+          </component>
+        </children>
+      </grid>
+      <grid id="df8c1" binding="pnlOverviewHolder" layout-manager="BorderLayout" hgap="0" vgap="0">
         <constraints>
-          <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false">
-            <preferred-size width="154" height="16"/>
+          <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false">
+            <preferred-size width="341" height="46"/>
           </grid>
         </constraints>
-        <properties>
-          <text value="N/A"/>
-        </properties>
-      </component>
-      <component id="cd07e" class="javax.swing.JLabel">
-        <constraints>
-          <grid row="0" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
-        </constraints>
-        <properties>
-          <text value="Last Modified"/>
-        </properties>
-      </component>
-      <component id="697d4" class="javax.swing.JLabel" binding="lastModifiedLabel">
-        <constraints>
-          <grid row="0" column="4" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
-        </constraints>
-        <properties>
-          <text value="N/A"/>
-        </properties>
-      </component>
-      <component id="6d28c" class="javax.swing.JLabel">
-        <constraints>
-          <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
-        </constraints>
-        <properties>
-          <text value="Status"/>
-        </properties>
-      </component>
-      <component id="31dce" class="javax.swing.JLabel" binding="statusLabel">
-        <constraints>
-          <grid row="1" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false">
-            <preferred-size width="154" height="16"/>
+        <properties/>
+        <border type="none"/>
+        <children>
+          <grid id="3e8be" binding="pnlOverview" layout-manager="GridLayoutManager" row-count="3" column-count="4" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+            <margin top="0" left="0" bottom="0" right="0"/>
+            <constraints border-constraint="Center"/>
+            <properties/>
+            <border type="none"/>
+            <children>
+              <component id="512c3" class="javax.swing.JLabel">
+                <constraints>
+                  <grid row="0" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <font style="1"/>
+                  <text value="Deploynment Name"/>
+                </properties>
+              </component>
+              <component id="a24b4" class="javax.swing.JLabel" binding="deploymenNameLabel">
+                <constraints>
+                  <grid row="0" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <text value="Loading..."/>
+                </properties>
+              </component>
+              <component id="8634b" class="javax.swing.JLabel">
+                <constraints>
+                  <grid row="0" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <font style="1"/>
+                  <text value="Last Modified"/>
+                </properties>
+              </component>
+              <component id="92e24" class="javax.swing.JLabel" binding="lastModifiedLabel">
+                <constraints>
+                  <grid row="0" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <text value="Loading..."/>
+                </properties>
+              </component>
+              <component id="b990a" class="javax.swing.JLabel" binding="statusLabel">
+                <constraints>
+                  <grid row="1" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <text value="Loading..."/>
+                </properties>
+              </component>
+              <component id="6495f" class="javax.swing.JLabel">
+                <constraints>
+                  <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <font style="1"/>
+                  <text value="Status"/>
+                </properties>
+              </component>
+              <component id="b10b4" class="javax.swing.JLabel">
+                <constraints>
+                  <grid row="1" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <font style="1"/>
+                  <text value="DeploymentMode"/>
+                </properties>
+              </component>
+              <component id="b8c3f" class="javax.swing.JLabel" binding="deploymentModeLabel">
+                <constraints>
+                  <grid row="1" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <text value="Loading..."/>
+                </properties>
+              </component>
+              <component id="17aa6" class="org.jdesktop.swingx.JXLabel" binding="statusReasonLabel">
+                <constraints>
+                  <grid row="2" column="1" row-span="1" col-span="3" vsize-policy="6" hsize-policy="6" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <text value="                                                                                                                                         "/>
+                </properties>
+              </component>
+              <component id="56085" class="javax.swing.JLabel">
+                <constraints>
+                  <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+                </constraints>
+                <properties>
+                  <font style="1"/>
+                  <text value="Status Reason"/>
+                </properties>
+              </component>
+            </children>
           </grid>
-        </constraints>
-        <properties>
-          <text value="N/A"/>
-        </properties>
-      </component>
-      <component id="f24f1" class="javax.swing.JLabel">
-        <constraints>
-          <grid row="1" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
-        </constraints>
-        <properties>
-          <text value="DeploymentMode"/>
-        </properties>
-      </component>
-      <component id="6f800" class="javax.swing.JLabel" binding="deploymentModeLabel">
-        <constraints>
-          <grid row="1" column="4" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
-        </constraints>
-        <properties>
-          <text value="N/A"/>
-        </properties>
-      </component>
-      <component id="5680f" class="javax.swing.JLabel">
+        </children>
+      </grid>
+      <component id="b9654" class="javax.swing.JLabel">
         <constraints>
           <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
         </constraints>
         <properties>
-          <text value="Status Reason"/>
+          <text value=""/>
         </properties>
       </component>
-      <component id="1782f" class="javax.swing.JTree" binding="templateTree">
+      <scrollpane id="bbd79">
         <constraints>
-          <grid row="4" column="0" row-span="1" col-span="5" vsize-policy="6" hsize-policy="6" anchor="0" fill="3" indent="0" use-parent-layout="false">
-            <preferred-size width="150" height="50"/>
-          </grid>
+          <grid row="3" column="0" row-span="1" col-span="1" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
         </constraints>
         <properties/>
-      </component>
-      <component id="a53af" class="javax.swing.JLabel">
-        <constraints>
-          <grid row="0" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
-        </constraints>
-        <properties>
-          <text value=""/>
-        </properties>
-      </component>
-      <component id="b68df" class="javax.swing.JLabel">
-        <constraints>
-          <grid row="1" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
-        </constraints>
-        <properties>
-          <text value=""/>
-        </properties>
-      </component>
-      <component id="dbc18" class="javax.swing.JLabel">
-        <constraints>
-          <grid row="3" column="0" row-span="1" col-span="5" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
-        </constraints>
-        <properties>
-          <text value=""/>
-        </properties>
-      </component>
-      <component id="5d90c" class="org.jdesktop.swingx.JXLabel" binding="statusReasonLabel">
-        <constraints>
-          <grid row="2" column="1" row-span="1" col-span="4" vsize-policy="0" hsize-policy="0" anchor="8" fill="0" indent="0" use-parent-layout="false">
-            <preferred-size width="500" height="16"/>
-          </grid>
-        </constraints>
-        <properties>
-          <text value="N/A"/>
-        </properties>
-      </component>
+        <border type="none"/>
+        <children>
+          <component id="1782f" class="com.intellij.ui.treeStructure.Tree" binding="templateTree">
+            <constraints/>
+            <properties/>
+          </component>
+        </children>
+      </scrollpane>
     </children>
   </grid>
 </form>
