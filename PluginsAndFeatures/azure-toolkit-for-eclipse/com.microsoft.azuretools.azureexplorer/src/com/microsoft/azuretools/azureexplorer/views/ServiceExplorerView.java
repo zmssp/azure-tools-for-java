@@ -186,7 +186,7 @@ public class ServiceExplorerView extends ViewPart implements PropertyChangeListe
         }
     }
 
-    private TreeNode createTreeNode(Node node) {
+    private TreeNode createTreeNode(Node node) {    	
         TreeNode treeNode = new TreeNode(node);
 
         // associate the TreeNode with the Node via it's "viewData"
@@ -251,6 +251,10 @@ public class ServiceExplorerView extends ViewPart implements PropertyChangeListe
             case add:
                 // create child tree nodes for the new nodes
                 for (Node childNode : (Collection<Node>) e.getNewItems()) {
+					if (childNode.getClass().getName().equals(
+							"com.microsoft.tooling.msservices.serviceexplorer.azure.arm.ResourceManagementModule")) {
+						continue;
+					}
                     treeNode.add(createTreeNode(childNode));
                 }
                 break;

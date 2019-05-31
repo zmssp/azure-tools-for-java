@@ -49,7 +49,6 @@ public class ARMCompletionProvider extends CompletionProvider<CompletionParamete
     @Override
     protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext context,
         @NotNull CompletionResultSet result) {
-        long timeS = System.currentTimeMillis();
         try {
             if (parameters.getOriginalFile().getLanguage().getID().equals(ARMLanguage.ID)) {
                 PsiElement position = parameters.getPosition();
@@ -71,9 +70,7 @@ public class ARMCompletionProvider extends CompletionProvider<CompletionParamete
                 }
             }
         } catch (Exception ignore) {
-            System.out.println(ignore);
         }
-        System.out.println("time cost: " + (System.currentTimeMillis() - timeS));
     }
 
     private boolean isProperty(PsiElement position) {

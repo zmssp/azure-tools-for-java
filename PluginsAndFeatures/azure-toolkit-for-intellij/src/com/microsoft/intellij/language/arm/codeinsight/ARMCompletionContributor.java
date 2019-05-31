@@ -44,8 +44,8 @@ public class ARMCompletionContributor extends CompletionContributor {
         .andNot(psiElement().withParent(JsonStringLiteral.class));
 
     public ARMCompletionContributor() {
-        extend(CompletionType.BASIC, psiElement().inside(JsonProperty.class).withLanguage(JsonLanguage.INSTANCE),
-            ARMCompletionProvider.INSTANCE);
+//        extend(CompletionType.BASIC, psiElement().inside(JsonProperty.class).withLanguage(JsonLanguage.INSTANCE),
+//            ARMCompletionProvider.INSTANCE);
     }
 
 }

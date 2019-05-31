@@ -52,7 +52,7 @@ public class ExportTemplate {
     }
 
     public void doExport(String template) {
-        File file = DefaultLoader.getUIHelper().showFileChooser(FILE_SELECTOR_TITLE);
+        File file = DefaultLoader.getUIHelper().showFileSaver(FILE_SELECTOR_TITLE, deploymentNode.getName() + ".json");
         if (file != null) {
             deploymentNode.getDeploymentNodePresenter().onGetExportTemplateRes(Utils.getPrettyJson(template), file);
         }
