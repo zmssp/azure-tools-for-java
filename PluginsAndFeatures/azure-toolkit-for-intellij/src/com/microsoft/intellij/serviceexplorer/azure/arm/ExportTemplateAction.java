@@ -32,6 +32,7 @@ import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.De
 public class ExportTemplateAction extends NodeActionListener {
 
     private final DeploymentNode deploymentNode;
+
     public ExportTemplateAction(DeploymentNode deploymentNode) {
         this.deploymentNode = deploymentNode;
     }
@@ -40,5 +41,4 @@ public class ExportTemplateAction extends NodeActionListener {
     protected void actionPerformed(NodeActionEvent nodeActionEvent) {
         new ExportTemplate(deploymentNode).doExport();
     }
-
 }

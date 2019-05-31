@@ -65,24 +65,25 @@ public class ResourceTemplateView extends BaseEditor {
     private Project project;
     private static final String PROMPT_MESSAGE_SAVE_TEMPALTE = "Would you like to save the template file before you exit";
     private static final String PROMPT_MESSAGE_UPDATE_DEPLOYMENT = "Are you sure you want to update the deployment with the modified template";
+    private FileEditor fileEditor;
 
     public void loadTemplate(DeploymentNode node, String template) {
         this.node = node;
         this.project = (Project) node.getProject();
         final String prettyTemplate = Utils.getPrettyJson(template);
-        FileEditor editor = createEditor(prettyTemplate);
+        fileEditor = createEditor(prettyTemplate);
         GridConstraints constraints = new GridConstraints();
         constraints.setFill(GridConstraints.FILL_NONE);
         constraints.setAnchor(GridConstraints.ANCHOR_WEST);
-        editorPanel.add(editor.getComponent(), constraints);
+        editorPanel.add(fileEditor.getComponent(), constraints);
 
-        project.getMessageBus().connect(editor).
+        project.getMessageBus().connect(fileEditor).
                 subscribe(FileEditorManagerListener.Before.FILE_EDITOR_MANAGER, new FileEditorManagerListener.Before() {
             @Override
             public void beforeFileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
                 if (file.getFileType().getName().equals(ResourceTemplateViewProvider.TYPE) &&
                         file.getName().equals(node.getName())) {
-                    String editorText = ((PsiAwareTextEditorImpl) editor).getEditor().getDocument().getText();
+                    String editorText = ((PsiAwareTextEditorImpl) fileEditor).getEditor().getDocument().getText();
                     if (editorText.equals(prettyTemplate)) {
                         return;
                     }
@@ -95,7 +96,7 @@ public class ResourceTemplateView extends BaseEditor {
         });
 
         saveAsTemplateButton.addActionListener((e) ->
-                new ExportTemplate(node).doExport(((PsiAwareTextEditorImpl) editor).
+                new ExportTemplate(node).doExport(((PsiAwareTextEditorImpl) fileEditor).
                         getEditor().getDocument().getText())
         );
 
@@ -109,7 +110,7 @@ public class ResourceTemplateView extends BaseEditor {
                         @Override
                         public void run(@NotNull ProgressIndicator indicator) {
                             try {
-                                String template = ((PsiAwareTextEditorImpl) editor).getEditor().getDocument().getText();
+                                String template = ((PsiAwareTextEditorImpl) fileEditor).getEditor().getDocument().getText();
                                 node.getDeployment().update().
                                         withTemplate(template)
                                         .withParameters("{}")
@@ -130,9 +131,8 @@ public class ResourceTemplateView extends BaseEditor {
     }
 
     private FileEditor createEditor(String template) {
-        FileEditor fileEditor = PsiAwareTextEditorProvider.getInstance()
+        return PsiAwareTextEditorProvider.getInstance()
                 .createEditor(project, new LightVirtualFile(node.getName() + ".json", ARMLanguage.INSTANCE, template));
-        return fileEditor;
     }
 
     @NotNull
@@ -149,6 +149,6 @@ public class ResourceTemplateView extends BaseEditor {
 
     @Override
     public void dispose() {
-
+        fileEditor.dispose();
     }
 }

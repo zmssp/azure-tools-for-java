@@ -63,10 +63,10 @@ public class ARMCompletionProvider extends CompletionProvider<CompletionParamete
                             result.addElement(LookupElementBuilder.create(resource).bold());
                         }
                     } else if (scope == Scope.variables) {
-
+                        // todo
                     }
                 } else {
-
+                    // todo
                 }
             }
         } catch (Exception ignore) {
