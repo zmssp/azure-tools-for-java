@@ -40,7 +40,7 @@ import java.util.List;
 
 public class ResourceManagementNode extends RefreshableNode implements ResourceManagementNodeView {
 
-    private static final String ICON_RESOURCE_MANAGEMENT = "WebApp_16.png";
+    private static final String ICON_RESOURCE_MANAGEMENT = "arm_1.png";
     private static final String ACTION_DELETE = "Delete";
     private static final String DELETE_RESOURCE_GROUP_PROMPT_MESSAGE = "This operation will delete the Resource "
         + "Group: %s. Are you sure you want to continue?";

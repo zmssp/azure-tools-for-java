@@ -44,34 +44,7 @@ public class ResourceManagementModulePresenter<V extends ResourceManagementModul
     public void onModuleRefresh() throws IOException, CanceledByUserException {
         final ResourceManagementModuleView view = getMvpView();
         if (view != null) {
-            final List<ResourceEx<ResourceGroup>> rgs = new ArrayList<>();
-            final List<Deployment> deployments = new ArrayList<>();
-
-            Observable.range(0, 1).flatMap((val) ->
-                Observable.create((subscriber) -> {
-                    try {
-                        if (val == 0) {
-                            rgs.addAll(AzureMvpModel.getInstance().getResourceGroups(true));
-                        }
-                        if (val == 1) {
-                            deployments.addAll(AzureMvpModel.getInstance().listAllDeployments());
-                        }
-                    } catch (Exception ignore) {
-                    }
-                    subscriber.onCompleted();
-                }).subscribeOn(Schedulers.io()), 2).subscribeOn(Schedulers.io()).toBlocking().subscribe();
-
-            List<ResourceEx<ResourceGroup>> rgsContainsDeployment = new ArrayList<>();
-            Set<String> containsDeploymentRgName = new HashSet<>();
-            for (Deployment deployment : deployments) {
-                containsDeploymentRgName.add(deployment.resourceGroupName());
-            }
-            for (ResourceEx<ResourceGroup> rg : rgs) {
-                if (containsDeploymentRgName.contains(rg.getResource().name())) {
-                    rgsContainsDeployment.add(rg);
-                }
-            }
-            view.renderChildren(rgs);
+            view.renderChildren(AzureMvpModel.getInstance().getResourceGroups(true));
         }
     }
 

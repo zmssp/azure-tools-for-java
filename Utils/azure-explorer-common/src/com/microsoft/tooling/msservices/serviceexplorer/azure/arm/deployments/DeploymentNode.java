@@ -32,7 +32,7 @@ import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureNodeActionPro
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.ResourceManagementNode;
 public class DeploymentNode extends Node implements DeploymentNodeView {
 
-    public static final String ICON_PATH = "WebApp_16.png";
+    public static final String ICON_PATH = "arm_2.png";
     private static final String EXPORT_TEMPLATE_SUCCESS = "Export resource manager template saved";
     private static final String EXPORT_TEMPLATE_FAIL = "MS Services - Error Export resource manager template";
     private static final String SHOW_PROPERTY_ACTION = "Show Properties";
