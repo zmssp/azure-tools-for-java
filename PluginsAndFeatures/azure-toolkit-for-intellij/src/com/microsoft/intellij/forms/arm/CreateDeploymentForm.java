@@ -218,9 +218,10 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
         regionCb.removeAllItems();
         for (Location location : locations) {
             Region region = location.region();
-            regionCb.addItem(new ElementWrapper<>(region.label(), region));
-            if (region == Region.US_WEST2) {
-                regionCb.setSelectedIndex(regionCb.getItemCount() - 1);
+            ElementWrapper<Region> item = new ElementWrapper<>(region.label(), region);
+            regionCb.addItem(item);
+            if (region == Region.EUROPE_WEST) {
+                regionCb.setSelectedItem(item);
             }
         }
     }

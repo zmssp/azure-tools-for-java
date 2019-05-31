@@ -111,8 +111,8 @@ public class ResourceTemplateView extends BaseEditor {
                         public void run(@NotNull ProgressIndicator indicator) {
                             try {
                                 String template = ((PsiAwareTextEditorImpl) fileEditor).getEditor().getDocument().getText();
-                                node.getDeployment().update().
-                                        withTemplate(template)
+                                node.getDeployment().update()
+                                        .withTemplate(template)
                                         .withParameters("{}")
                                         .withMode(DeploymentMode.INCREMENTAL).apply();
                                 UIUtils.showNotification(statusBar, NOTIFY_UPDATE_DEPLOYMENT_SUCCESS, MessageType.INFO);

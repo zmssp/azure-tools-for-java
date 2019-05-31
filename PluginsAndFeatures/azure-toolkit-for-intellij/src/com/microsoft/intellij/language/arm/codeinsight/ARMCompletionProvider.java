@@ -86,6 +86,9 @@ public class ARMCompletionProvider extends CompletionProvider<CompletionParamete
 
     private Scope findScope(PsiElement position) {
         try {
+            // The json schema like: { "parameters":{}, "resources":{}, "variables": {} }
+            // The target is to find the property is on which scope, here just use a while to find the root.
+            // The 3 parent recursive is based on test...
             while (position.getParent().getParent().getParent() != null) {
                 position = position.getParent();
             }
