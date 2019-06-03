@@ -186,7 +186,7 @@ public class ServiceExplorerView extends ViewPart implements PropertyChangeListe
         }
     }
 
-    private TreeNode createTreeNode(Node node) {    	
+    private TreeNode createTreeNode(Node node) {
         TreeNode treeNode = new TreeNode(node);
 
         // associate the TreeNode with the Node via it's "viewData"

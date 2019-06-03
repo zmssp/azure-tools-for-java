@@ -176,8 +176,11 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
         close(DialogWrapper.OK_EXIT_CODE, true);
     }
 
-    private void updateUI() {
-        AzureUIRefreshCore.execute(new AzureUIRefreshEvent(AzureUIRefreshEvent.EventType.REFRESH, rgName));
+    public void filleSubsAndRg(ResourceManagementNode node) {
+        selectSubs(node.getSid());
+        fillResourceGroup();
+        UIUtils.selectByText(rgNameCb, node.getRgName());
+        radioRgLogic();
     }
 
     protected void initTemplateComponent() {
@@ -234,6 +237,10 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
         }
     }
 
+    private void updateUI() {
+        AzureUIRefreshCore.execute(new AzureUIRefreshEvent(AzureUIRefreshEvent.EventType.REFRESH, rgName));
+    }
+
     private void fillResourceGroup() {
         Map<SubscriptionDetail, List<ResourceGroup>> srgMap = AzureModel
             .getInstance().getSubscriptionToResourceGroupMap();
@@ -258,13 +265,6 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
         usingExistRgRegionLabel.setVisible(!isCreateNewRg);
         usingExistRgRegionDetailLabel.setVisible(!isCreateNewRg);
         pack();
-    }
-
-    public void filleSubsAndRg(ResourceManagementNode node) {
-        selectSubs(node.getSid());
-        fillResourceGroup();
-        UIUtils.selectByText(rgNameCb, node.getRgName());
-        radioRgLogic();
     }
 
     private void selectSubs(String targetSid) {
