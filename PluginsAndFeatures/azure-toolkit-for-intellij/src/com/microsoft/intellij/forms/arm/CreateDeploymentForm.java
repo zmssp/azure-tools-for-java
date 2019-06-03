@@ -22,6 +22,7 @@
 
 package com.microsoft.intellij.forms.arm;
 
+import static com.microsoft.azuretools.telemetry.TelemetryConstants.BROWSE_TEMPLATE_SAMPLES;
 import static com.microsoft.intellij.serviceexplorer.azure.arm.CreateDeploymentAction.NOTIFY_CREATE_DEPLOYMENT_FAIL;
 import static com.microsoft.intellij.serviceexplorer.azure.arm.CreateDeploymentAction.NOTIFY_CREATE_DEPLOYMENT_SUCCESS;
 
@@ -44,6 +45,9 @@ import com.microsoft.azure.management.resources.ResourceGroup;
 import com.microsoft.azure.management.resources.fluentcore.arm.Region;
 import com.microsoft.azuretools.authmanage.AuthMethodManager;
 import com.microsoft.azuretools.authmanage.models.SubscriptionDetail;
+import com.microsoft.azuretools.telemetry.TelemetryConstants;
+import com.microsoft.azuretools.telemetrywrapper.EventType;
+import com.microsoft.azuretools.telemetrywrapper.EventUtil;
 import com.microsoft.azuretools.utils.*;
 import com.microsoft.intellij.AzurePlugin;
 import com.microsoft.intellij.ui.util.UIUtils;
@@ -61,6 +65,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JTextField;
+
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -112,6 +117,9 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
 
         lblTemplateHover.setHyperlinkText("Browse for samples");
         lblTemplateHover.setHyperlinkTarget(ARM_DOC);
+        lblTemplateHover.addHyperlinkListener((e) -> {
+            EventUtil.logEvent(EventType.info, TelemetryConstants.ARM, BROWSE_TEMPLATE_SAMPLES, null);
+        });
 
         initTemplateComponent();
         radioRgLogic();
@@ -133,7 +141,7 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
             "Deploying your azure resource " + deploymentName + "...", false) {
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
-                try {
+                EventUtil.executeWithLog(TelemetryConstants.ARM, TelemetryConstants.CREATE_DEPLOYMENT, (operation -> {
                     SubscriptionDetail subs = (SubscriptionDetail) subscriptionCb.getSelectedItem();
                     Azure azure = AuthMethodManager.getInstance().getAzureClient(subs.getSubscriptionId());
                     WithTemplate template;
@@ -157,12 +165,12 @@ public class CreateDeploymentForm extends DeploymentBaseForm {
                             .create();
 
                     UIUtils.showNotification(statusBar, NOTIFY_CREATE_DEPLOYMENT_SUCCESS, MessageType.INFO);
-                } catch (Exception e) {
-                    UIUtils.showNotification(statusBar, NOTIFY_CREATE_DEPLOYMENT_FAIL + ", " + e.getMessage(),
-                        MessageType.ERROR);
-                } finally {
                     updateUI();
-                }
+                }), (ex) -> {
+                    UIUtils.showNotification(statusBar, NOTIFY_CREATE_DEPLOYMENT_FAIL + ", " + ex.getMessage(),
+                        MessageType.ERROR);
+                    updateUI();
+                });
             }
         });
         close(DialogWrapper.OK_EXIT_CODE, true);

@@ -26,6 +26,8 @@ import com.microsoft.azure.management.resources.ResourceGroup;
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceId;
 import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
 import com.microsoft.azuretools.core.mvp.model.ResourceEx;
+import com.microsoft.azuretools.telemetry.TelemetryConstants;
+import com.microsoft.azuretools.telemetrywrapper.EventUtil;
 import com.microsoft.azuretools.utils.*;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.helpers.collections.ObservableList;
@@ -67,14 +69,14 @@ public class ResourceManagementModule extends AzureRefreshableNode implements Re
 
     @Override
     public void removeNode(String sid, String id, Node node) {
-        try {
+        EventUtil.executeWithLog(TelemetryConstants.ARM, TelemetryConstants.DELETE_RESOURCE_GROUP, (operation -> {
             rmModulePresenter.onDeleteResourceGroup(sid, id);
             removeDirectChildNode(node);
-        } catch (Exception e) {
+        }), (e) -> {
             DefaultLoader.getUIHelper()
                     .showException("An error occurred while attempting to delete the resource group ",
                             e, "Azure Services Explorer - Error Deleting Resource Group", false, true);
-        }
+        });
     }
 
     @Override

@@ -24,12 +24,18 @@ package com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments;
 
 import com.microsoft.azure.management.resources.Deployment;
 import com.microsoft.azuretools.azurecommons.helpers.AzureCmdException;
+import com.microsoft.azuretools.telemetrywrapper.EventType;
+import com.microsoft.azuretools.telemetrywrapper.EventUtil;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.serviceexplorer.Node;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionEvent;
 import com.microsoft.tooling.msservices.serviceexplorer.NodeActionListener;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.AzureNodeActionPromptListener;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.ResourceManagementNode;
+
+import static com.microsoft.azuretools.telemetry.TelemetryConstants.ARM;
+import static com.microsoft.azuretools.telemetry.TelemetryConstants.SHOW_DEPLOYMENT_PROPERTY;
+
 public class DeploymentNode extends Node implements DeploymentNodeView {
 
     public static final String ICON_PATH = "arm_2.png";
@@ -86,6 +92,7 @@ public class DeploymentNode extends Node implements DeploymentNodeView {
 
         @Override
         protected void actionPerformed(NodeActionEvent e) throws AzureCmdException {
+            EventUtil.logEvent(EventType.info, ARM, SHOW_DEPLOYMENT_PROPERTY, null);
             DefaultLoader.getUIHelper().openDeploymentPropertyView(DeploymentNode.this);
         }
     }

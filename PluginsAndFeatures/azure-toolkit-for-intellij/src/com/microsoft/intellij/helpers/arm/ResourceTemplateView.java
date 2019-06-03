@@ -39,6 +39,7 @@ import com.intellij.testFramework.LightVirtualFile;
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.microsoft.azure.management.resources.DeploymentMode;
 import com.microsoft.azuretools.azurecommons.util.Utils;
+import com.microsoft.azuretools.telemetrywrapper.EventUtil;
 import com.microsoft.intellij.helpers.base.BaseEditor;
 import com.microsoft.intellij.language.arm.ARMLanguage;
 import com.microsoft.intellij.ui.util.UIUtils;
@@ -51,6 +52,8 @@ import javax.swing.JPanel;
 
 import org.jetbrains.annotations.NotNull;
 
+import static com.microsoft.azuretools.telemetry.TelemetryConstants.ARM;
+import static com.microsoft.azuretools.telemetry.TelemetryConstants.UPDATE_DEPLOYMENT_SHORTCUT;
 import static com.microsoft.intellij.serviceexplorer.azure.arm.UpdateDeploymentAction.NOTIFY_UPDATE_DEPLOYMENT_FAIL;
 import static com.microsoft.intellij.serviceexplorer.azure.arm.UpdateDeploymentAction.NOTIFY_UPDATE_DEPLOYMENT_SUCCESS;
 
@@ -109,17 +112,18 @@ public class ResourceTemplateView extends BaseEditor {
                             "Update your azure resource " + node.getDeployment().name() + "...", false) {
                         @Override
                         public void run(@NotNull ProgressIndicator indicator) {
-                            try {
-                                String template = ((PsiAwareTextEditorImpl) fileEditor).getEditor().getDocument().getText();
+                            EventUtil.executeWithLog(ARM, UPDATE_DEPLOYMENT_SHORTCUT, (operation -> {
+                                String template = ((PsiAwareTextEditorImpl) fileEditor).getEditor()
+                                        .getDocument().getText();
                                 node.getDeployment().update()
                                         .withTemplate(template)
                                         .withParameters("{}")
                                         .withMode(DeploymentMode.INCREMENTAL).apply();
                                 UIUtils.showNotification(statusBar, NOTIFY_UPDATE_DEPLOYMENT_SUCCESS, MessageType.INFO);
-                            } catch (Exception e) {
+                            }), (e) -> {
                                 UIUtils.showNotification(statusBar,
                                         NOTIFY_UPDATE_DEPLOYMENT_FAIL + ", " + e.getMessage(), MessageType.ERROR);
-                            }
+                            });
                         }
                     });
                 }

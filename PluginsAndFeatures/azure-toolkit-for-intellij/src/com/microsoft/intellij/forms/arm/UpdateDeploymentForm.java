@@ -22,6 +22,7 @@
 
 package com.microsoft.intellij.forms.arm;
 
+import static com.microsoft.azuretools.telemetry.TelemetryConstants.BROWSE_TEMPLATE_SAMPLES;
 import static com.microsoft.intellij.serviceexplorer.azure.arm.UpdateDeploymentAction.NOTIFY_UPDATE_DEPLOYMENT_FAIL;
 import static com.microsoft.intellij.serviceexplorer.azure.arm.UpdateDeploymentAction.NOTIFY_UPDATE_DEPLOYMENT_SUCCESS;
 
@@ -38,6 +39,9 @@ import com.intellij.openapi.wm.WindowManager;
 import com.intellij.ui.HyperlinkLabel;
 import com.microsoft.azure.management.resources.DeploymentMode;
 import com.microsoft.azure.management.resources.Subscription;
+import com.microsoft.azuretools.telemetry.TelemetryConstants;
+import com.microsoft.azuretools.telemetrywrapper.EventType;
+import com.microsoft.azuretools.telemetrywrapper.EventUtil;
 import com.microsoft.azuretools.utils.AzureModel;
 import com.microsoft.intellij.ui.util.UIUtils;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentNode;
@@ -71,6 +75,9 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
         this.deploymentNode = deploymentNode;
         lblTemplateHover.setHyperlinkText("Browse for samples");
         lblTemplateHover.setHyperlinkTarget(ARM_DOC);
+        lblTemplateHover.addHyperlinkListener((e) -> {
+            EventUtil.logEvent(EventType.info, TelemetryConstants.ARM, BROWSE_TEMPLATE_SAMPLES, null);
+        });
         initTemplateComponent();
         fill();
         init();
@@ -83,7 +90,7 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
             "Update your azure resource " + deploymentName + "...", false) {
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
-                try {
+                EventUtil.executeWithLog(TelemetryConstants.ARM, TelemetryConstants.UPDATE_DEPLOYMENT, (operation -> {
                     String fileText = templateTextField.getText();
                     String content = IOUtils.toString(new FileReader(fileText));
                     deploymentNode.getDeployment().update().
@@ -92,10 +99,10 @@ public class UpdateDeploymentForm extends DeploymentBaseForm {
                             .withMode(DeploymentMode.INCREMENTAL).apply();
 
                     UIUtils.showNotification(statusBar, NOTIFY_UPDATE_DEPLOYMENT_SUCCESS, MessageType.INFO);
-                } catch (Exception e) {
+                }), (e) -> {
                     UIUtils.showNotification(statusBar, NOTIFY_UPDATE_DEPLOYMENT_FAIL + ", " + e.getMessage(),
                         MessageType.ERROR);
-                }
+                });
             }
         });
         close(DialogWrapper.OK_EXIT_CODE, true);

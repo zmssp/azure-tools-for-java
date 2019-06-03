@@ -28,6 +28,9 @@ import com.microsoft.azure.PagedList;
 import com.microsoft.azure.management.resources.Deployment;
 import com.microsoft.azure.management.resources.DeploymentOperation;
 import com.microsoft.azuretools.core.mvp.ui.arm.DeploymentProperty;
+import com.microsoft.azuretools.telemetry.TelemetryConstants;
+import com.microsoft.azuretools.telemetrywrapper.EventType;
+import com.microsoft.azuretools.telemetrywrapper.EventUtil;
 import com.microsoft.intellij.helpers.base.BaseEditor;
 import com.microsoft.tooling.msservices.components.DefaultLoader;
 import com.microsoft.tooling.msservices.serviceexplorer.azure.arm.deployments.DeploymentNode;
@@ -124,8 +127,11 @@ public class DeploymentPropertyView extends BaseEditor implements DeploymentProp
         statusReasonLabel.setLineWrap(true);
         statusReasonLabel.setText(sb.toString());
 
-        viewResourceTemplateButton.addActionListener((e) ->
-            DefaultLoader.getUIHelper().openResourceTemplateView(deploymentNode, deploymentProperty.getTemplateJson()));
+        viewResourceTemplateButton.addActionListener((e) -> {
+            EventUtil.logEvent(EventType.info, TelemetryConstants.ARM, TelemetryConstants.VIEW_TEMPALTE_FILE, null);
+            DefaultLoader.getUIHelper().openResourceTemplateView(deploymentNode, deploymentProperty.getTemplateJson());
+        });
+
 
         DefaultMutableTreeNode nodeRoot = new DefaultMutableTreeNode("Template");
         TreeModel model = new DefaultTreeModel(nodeRoot);
